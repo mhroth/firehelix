@@ -1,0 +1,6 @@
+#N canvas 386 187 218 107 10;
+#X obj 25 17 loadbang;
+#X obj 25 42 metro 1000;
+#X obj 25 66 s #PIN_00;
+#X connect 0 0 1 0;
+#X connect 1 0 2 0;
