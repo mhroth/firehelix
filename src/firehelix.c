@@ -21,7 +21,7 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 
-#include "heavy/Heavy_heavy.h"
+#include "heavy/Heavy_firehelix.h"
 
 // http://www.susa.net/wordpress/2012/06/raspberry-pi-relay-using-gpio/
 // http://pieter-jan.com/node/15
