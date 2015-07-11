@@ -17,9 +17,10 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <fcntl.h>
+#include <fcntl.h> // for open
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <unistd.h> // for close
 
 #include "heavy/Heavy_firehelix.h"
 
@@ -27,23 +28,31 @@
 // http://pieter-jan.com/node/15
 // https://enzienaudio.com/h/mhroth/firehelix/
 
-#define IOBASE   0x20000000
-
+#define IOBASE 0x20000000
 #define GPIO_BASE (IOBASE + 0x200000)
+
+struct bcm2835_peripheral {
+  unsigned long addr_p;
+  int mem_fd;
+  void *map;
+  volatile unsigned int *addr;
+};
+
+struct bcm2835_peripheral gpio = {GPIO_BASE};
 
 #define PIN_07 4
 
 #define INP_GPIO(g) *(gpio.addr + ((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
 // sets bits which are 1 ignores bits which are 0
-#define GPIO_SET(g) *(gpio.addr + 7) = (1 << g)
+#define GPIO_SET(g) *(gpio.addr + 7) = (1 << (g))
 // clears bits which are 1 ignores bits which are 0
-#define GPIO_CLR(g) *(gpio.addr + 10) = (1 << g)
-#define GPIO_READ(g) *(gpio.addr + 13) &= (1<<(g))
+#define GPIO_CLR(g) *(gpio.addr + 10) = (1 << (g))
+#define GPIO_READ(g) *(gpio.addr + 13) &= (1 << (g))
 
 // configure pins for output
-INP_GPIO(PIN_07);
-OUT_GPIO(PIN_07);
+// INP_GPIO(PIN_07);
+// OUT_GPIO(PIN_07);
 
 #define MMAP_PAGE_SIZE 4096
 #define MMAP_BLOCK_SIZE 4096
@@ -53,15 +62,6 @@ OUT_GPIO(PIN_07);
 
 #define SEC_TO_NS_L 1000000000L
 #define US_TO_NS_L 1000L
-
-struct bcm2835_peripheral {
-    unsigned long addr_p;
-    int mem_fd;
-    void *map;
-    volatile unsigned int *addr;
-};
-
-struct bcm2835_peripheral gpio = {GPIO_BASE};
 
 // Some forward declarations...
 // Exposes the physical address defined in the passed structure using mmap on /dev/mem
@@ -96,6 +96,8 @@ static void unmap_peripheral(struct bcm2835_peripheral *p) {
   close(p->mem_fd);
 }
 
+static volatile bool _keepRunning = true;
+
 // http://stackoverflow.com/questions/4217037/catch-ctrl-c-in-c
 static void sigintHandler(int x) {
   // TODO(mhroth): handle Ctrl+C
@@ -120,8 +122,6 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     }
   }
 }
-
-static volatile bool _keepRunning = true;
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, &sigintHandler); // register the SIGINT handler
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
       sleep_nano.tv_nsec = (long) sleep_us;
       nanosleep(&sleep_nano, NULL);
     }
-    else printf("Buffer underrun by %ius\n", -1*sleep_us);
+    else printf("Buffer underrun by %llius\n", -1*sleep_us);
   }
 
   // TODO(mhroth): set all pins to 0 and unmap everything

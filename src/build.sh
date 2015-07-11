@@ -1,3 +1,3 @@
 #!/bin/bash
 
-gcc firehelix.c -o firehelix
+gcc firehelix.c heavy/*.c -Os -o firehelix
