@@ -1,3 +1,3 @@
 #!/bin/bash
 
-gcc firehelix.c heavy/*.c -std=gnu99 -Werror -Os -lrt -o firehelix
+gcc firehelix.c heavy/*.c -std=gnu99 -Werror -Os -o firehelix
