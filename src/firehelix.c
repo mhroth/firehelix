@@ -107,13 +107,20 @@ static void sigintHandler(int x) {
 
 static void hv_printHook(double timestamp, const char *name, const char *s,
     void *userData) {
-  printf("[@ %.3f] %s: %s\n", timestamp, name, s);
+  printf("[@h %.3fms] %s: %s\n", timestamp, name, s);
 }
 
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
   if (receiverName[0] == '#') { // minimise overhead of sendhook
-    printf("Message received at %s.\n", receiverName);
+    struct timeval *tick = (struct timeval *) userData;
+    struct timeval tock;
+    gettimeofday(&tock, NULL);
+    const int64_t elapsed_ns = ((tock.tv_sec - tick->tv_sec) * SEC_TO_NS_L) + // sec to ns
+        ((tock.tv_usec - tick->tv_usec) * US_TO_NS_L); // us to ns
+    const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
+    printf("[clock drift %.3f]: %s.\n", elapsed_ms/timestamp, receiverName);
+
     if (!strncmp(receiverName, "#PIN_00", 7)) {
       // // TODO(mhroth): do this correctly
       // if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
@@ -140,19 +147,22 @@ int main(int argc, char *argv[]) {
       return -1;
   }
 */
+
+  const int64_t blocksize_ns =
+      (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
+
+  struct timeval start_tick, tick, tock;
+
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
   Hv_firehelix *hv_context = hv_firehelix_new(HEAVY_SAMPLE_RATE);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
+  hv_setUserData(hv_context, &start_tick);
   printf("done.\n");
 
-  const int64_t blocksize_ns =
-      (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
-
-  struct timeval tick, tock;
-
   printf("Starting runloop.\n");
+  gettimeofday(&start_tick, NULL); // get wall time start of runloop
   while (_keepRunning) {
     // process Heavy
     gettimeofday(&tick, NULL);
