@@ -68,7 +68,7 @@ struct bcm2835_peripheral gpio = {GPIO_BASE};
 // Exposes the physical address defined in the passed structure using mmap on /dev/mem
 static int map_peripheral(struct bcm2835_peripheral *p) {
   // Open /dev/mem
-  if ((p->mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
+  if ((p->mem_fd = open("/dev/mem", O_RDWR|O_SYNC)) < 0) {
     printf("Failed to open /dev/mem, try checking permissions.\n");
     return -1;
   }
@@ -101,9 +101,7 @@ static volatile bool _keepRunning = true;
 
 // http://stackoverflow.com/questions/4217037/catch-ctrl-c-in-c
 static void sigintHandler(int x) {
-  // TODO(mhroth): handle Ctrl+C
-  // e.g. set all pins to 0 and unmap everything
-  printf("Termination signal received.\n");
+  printf("Termination signal received.\n"); // handle Ctrl+C
   _keepRunning = false;
 }
 
@@ -114,11 +112,12 @@ static void hv_printHook(double timestamp, const char *name, const char *s,
 
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
-  if (receiverName[0] == '#') { // minimise overhead of sendhook for
+  if (receiverName[0] == '#') { // minimise overhead of sendhook
+    printf("Message received at %s.\n", receiverName);
     if (!strncmp(receiverName, "#PIN_00", 7)) {
-      // TODO(mhroth): do this correctly
-      if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
-      else GPIO_SET(PIN_07);
+      // // TODO(mhroth): do this correctly
+      // if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
+      // else GPIO_SET(PIN_07);
     } else if (!strncmp(receiverName, "#PIN_01", 7)) {
       // TODO(mhroth): etc.
     }
@@ -126,7 +125,15 @@ static void hv_sendHook(double timestamp, const char *receiverName,
 }
 
 int main(int argc, char *argv[]) {
-  signal(SIGINT, &sigintHandler); // register the SIGINT handler
+  printf("Welcome to Firehelix @ Burning Man 2015.\n");
+  printf("PID: %i\n", getpid());
+  printf("Audio: %i @ %gHz\n", HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE);
+  printf("Network: xxx.xxx.xxx.xxx:2015\n");
+  printf("Press Ctrl+C to exit.\n");
+  printf("\n");
+
+  // register the SIGINT handler
+  signal(SIGINT, &sigintHandler);
 /*
   if(map_peripheral(&gpio) == -1) {
       printf("Failed to map the physical GPIO registers into the virtual memory space.\n");
@@ -134,7 +141,7 @@ int main(int argc, char *argv[]) {
   }
 */
   // initialise and configure Heavy
-  printf("Instantiating and configuring heavy... ");
+  printf("Instantiating and configuring Heavy... ");
   Hv_firehelix *hv_context = hv_firehelix_new(HEAVY_SAMPLE_RATE);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
@@ -145,14 +152,12 @@ int main(int argc, char *argv[]) {
 
   struct timeval tick, tock;
 
-  float *outputBuffer = (float *) malloc(HEAVY_BLOCKSIZE*sizeof(float));
-
+  printf("Starting runloop.\n");
   while (_keepRunning) {
     // process Heavy
     gettimeofday(&tick, NULL);
-    //hv_firehelix_process_inline(hv_context, NULL, outputBuffer, HEAVY_BLOCKSIZE);
+    hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
     gettimeofday(&tock, NULL);
-    printf("hi\n");
 
     const int64_t elapsed_ns = ((tock.tv_sec - tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
         ((tock.tv_usec - tick.tv_usec) * US_TO_NS_L); // us to ns
