@@ -103,6 +103,7 @@ static volatile bool _keepRunning = true;
 static void sigintHandler(int x) {
   // TODO(mhroth): handle Ctrl+C
   // e.g. set all pins to 0 and unmap everything
+  printf("Termination signal received.\n");
   _keepRunning = false;
 }
 
@@ -126,27 +127,32 @@ static void hv_sendHook(double timestamp, const char *receiverName,
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, &sigintHandler); // register the SIGINT handler
-
+/*
   if(map_peripheral(&gpio) == -1) {
       printf("Failed to map the physical GPIO registers into the virtual memory space.\n");
       return -1;
   }
-
+*/
   // initialise and configure Heavy
+  printf("Instantiating and configuring heavy... ");
   Hv_firehelix *hv_context = hv_firehelix_new(HEAVY_SAMPLE_RATE);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
+  printf("done.\n");
 
   const int64_t blocksize_ns =
       (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
 
   struct timeval tick, tock;
 
+  float *outputBuffer = (float *) malloc(HEAVY_BLOCKSIZE*sizeof(float));
+
   while (_keepRunning) {
     // process Heavy
     gettimeofday(&tick, NULL);
-    hv_firehelix_process_inline(hv_context, NULL, NULL, HEAVY_BLOCKSIZE);
+    //hv_firehelix_process_inline(hv_context, NULL, outputBuffer, HEAVY_BLOCKSIZE);
     gettimeofday(&tock, NULL);
+    printf("hi\n");
 
     const int64_t elapsed_ns = ((tock.tv_sec - tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
         ((tock.tv_usec - tick.tv_usec) * US_TO_NS_L); // us to ns
@@ -163,13 +169,16 @@ int main(int argc, char *argv[]) {
     }
     else printf("Buffer underrun by %llius\n", -1*sleep_us);
   }
+  printf("Firehelix shutting down... ");
 
   // TODO(mhroth): set all pins to 0 and unmap everything
-  GPIO_CLR(PIN_07);
-  unmap_peripheral(&gpio);
+  //GPIO_CLR(PIN_07);
+  //unmap_peripheral(&gpio);
 
   // free heavy
   hv_firehelix_free(hv_context);
+
+  printf("done.\n");
 
   return 0;
 }
