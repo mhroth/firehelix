@@ -19,7 +19,8 @@
 #include <stdint.h>
 #include <fcntl.h> // for open
 #include <sys/mman.h>
-#include <sys/time.h>
+#include <sys/time.h> // gettimeofday
+#include <time.h> // nanosleep
 #include <unistd.h> // for close
 
 #include "heavy/Heavy_firehelix.h"
