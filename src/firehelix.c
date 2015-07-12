@@ -105,7 +105,7 @@ static void sigintHandler(int x) {
 
 void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start)
 {
-  if ((end->tv_nsec-start->tv_nsec)<0) {
+  if ((end->tv_nsec - start->tv_nsec) < 0) {
     result->tv_sec = end->tv_sec - start->tv_sec - 1;
     result->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
   } else {
@@ -121,13 +121,14 @@ static void hv_printHook(double timestamp, const char *name, const char *s,
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
   if (receiverName[0] == '#') { // minimise overhead of sendhook
+/*
     struct timespec tock, diff_tick;
     clock_gettime(CLOCK_REALTIME, &tock);
     timespec_subtract(&diff_tick, &tock, (struct timespec *) userData);
     const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
     const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
     printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
-
+*/
     if (!strncmp(receiverName, "#PIN_00", 7)) {
       if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(0);
       else GPIO_SET(0);
@@ -188,6 +189,8 @@ void main(int argc, char *argv[]) {
   }
   printf("done.\n");
 
+  struct timespec start_tick, tock, diff_tick;
+
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
   Hv_firehelix *hv_context = hv_firehelix_new(HEAVY_SAMPLE_RATE);
@@ -197,7 +200,6 @@ void main(int argc, char *argv[]) {
   printf("done.\n");
 
   printf("Starting runloop.\n");
-  struct timespec start_tick, tock, diff_tick;
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
     // process Heavy
