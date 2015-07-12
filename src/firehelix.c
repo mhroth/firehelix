@@ -110,6 +110,16 @@ static void sigintHandler(int x) {
   _keepRunning = false;
 }
 
+void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start)
+{
+	if ((end->tv_nsec-start->tv_nsec)<0) {
+		result->tv_sec = end->tv_sec-start->tv_sec-1;
+		result->tv_nsec = 1000000000+end->tv_nsec-start->tv_nsec;
+	} else {
+		result->tv_sec = end->tv_sec-start->tv_sec;
+		result->tv_nsec = end->tv_nsec-start->tv_nsec;
+	}
+}
 static void hv_printHook(double timestamp, const char *name, const char *s,
     void *userData) {
   printf("[@h %.3fms] %s: %s\n", timestamp, name, s);
@@ -118,14 +128,13 @@ static void hv_printHook(double timestamp, const char *name, const char *s,
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
   if (receiverName[0] == '#') { // minimise overhead of sendhook
-    struct timeval *tick = (struct timeval *) userData;
-    struct timeval tock;
-    gettimeofday(&tock, NULL);
-    const int64_t elapsed_ns =
-        ((tock.tv_sec - tick->tv_sec) * SEC_TO_NS_L) + // sec to ns
-        ((tock.tv_usec - tick->tv_usec) * US_TO_NS_L); // us to ns
+    struct timespec *tick = (struct timespec *) userData;
+    struct timespec tock, result;
+    clock_gettime(CLOCK_REALTIME, &tock);
+    timespec_subtract(&result, &tock, tick);
+    const int64_t elapsed_ns = (((int64_t) result.tv_sec) * SEC_TO_NS_L) + result.tv_nsec;
     const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
-    printf("[clock drift %.3f]: %s.\n", elapsed_ms/timestamp, receiverName);
+    printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
 
     if (!strncmp(receiverName, "#PIN_00", 7)) {
       // // TODO(mhroth): do this correctly
@@ -159,11 +168,18 @@ static void printWlanIpPort() {
   freeifaddrs(ifaddr);
 }
 
+static void printClockResolution() {
+  struct timespec tick;
+  clock_getres(CLOCK_MONOTONIC, &tick);
+  printf("Clock resolution: %ins\n", tick.tv_nsec);
+}
+
 int main(int argc, char *argv[]) {
   printf("Welcome to Firehelix - Burning Man 2015.\n");
   printf("PID: %i\n", getpid());
   printf("Audio: %i @ %gHz\n", HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE);
   printWlanIpPort();
+  printClockResolution();
   printf("Press Ctrl+C to exit.\n");
   printf("\n");
 
@@ -176,10 +192,7 @@ int main(int argc, char *argv[]) {
   }
 */
 
-  // const int64_t blocksize_ns =
-  //     (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
-
-  struct timeval start_tick, tock;
+  struct timespec start_tick, tock, dtick;
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -190,30 +203,26 @@ int main(int argc, char *argv[]) {
   printf("done.\n");
 
   printf("Starting runloop.\n");
-  gettimeofday(&start_tick, NULL); // get wall time start of runloop
+  clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
     // process Heavy
-    // gettimeofday(&tick, NULL);
     hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
-    gettimeofday(&tock, NULL);
+    clock_gettime(CLOCK_REALTIME, &tock);
 
-    const int64_t elapsed_ns =
-        ((tock.tv_sec - start_tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
-        ((tock.tv_usec - start_tick.tv_usec) * US_TO_NS_L); // us to ns
+    timespec_subtract(&dtick, &tock, &start_tick);
+    const int64_t elapsed_ns = (((int64_t) dtick.tv_sec) * SEC_TO_NS_L) + dtick.tv_nsec;
 
     const int64_t block_ns = (int64_t) (hv_getCurrentTime(hv_context) * 1000000000.0);
 
-    const int64_t sleep_us = block_ns - elapsed_ns;
-    if (sleep_us > 0) {
+    const int64_t sleep_ns = block_ns - elapsed_ns;
+    if (sleep_ns > 0) {
       struct timespec sleep_nano;
-      // sleep_nano.tv_sec = (time_t) (sleep_us/SEC_TO_NS_L);
-      // sleep_nano.tv_nsec = (long) (sleep_us - (sleep_nano.tv_sec*SEC_TO_NS_L));
       sleep_nano.tv_sec = 0;
       // nothing will ever take longer than 1 second (famous last words...)
-      sleep_nano.tv_nsec = (long) sleep_us;
+      sleep_nano.tv_nsec = (long) sleep_ns;
       nanosleep(&sleep_nano, NULL);
     }
-    else printf("Buffer underrun by %llius\n", -1*sleep_us);
+    else printf("Buffer underrun by %llius\n", -1*sleep_ns);
   }
   printf("Firehelix shutting down... ");
 
