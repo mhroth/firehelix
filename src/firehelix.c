@@ -66,8 +66,8 @@ struct bcm2835_peripheral gpio = {GPIO_BASE};
 #define HEAVY_SAMPLE_RATE 48000.0 // Hz
 #define HEAVY_BLOCKSIZE 256 // samples
 
-#define SEC_TO_NS_L 1000000000L
-#define US_TO_NS_L 1000L
+#define SEC_TO_NS 1000000000
+#define SEC_TO_MS 1000
 
 // Some forward declarations...
 // Exposes the physical address defined in the passed structure using mmap on /dev/mem
@@ -112,13 +112,13 @@ static void sigintHandler(int x) {
 
 void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start)
 {
-	if ((end->tv_nsec-start->tv_nsec)<0) {
-		result->tv_sec = end->tv_sec-start->tv_sec-1;
-		result->tv_nsec = 1000000000+end->tv_nsec-start->tv_nsec;
-	} else {
-		result->tv_sec = end->tv_sec-start->tv_sec;
-		result->tv_nsec = end->tv_nsec-start->tv_nsec;
-	}
+  if ((end->tv_nsec-start->tv_nsec)<0) {
+    result->tv_sec = end->tv_sec - start->tv_sec - 1;
+    result->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+  } else {
+    result->tv_sec = end->tv_sec - start->tv_sec;
+    result->tv_nsec = end->tv_nsec - start->tv_nsec;
+  }
 }
 static void hv_printHook(double timestamp, const char *name, const char *s,
     void *userData) {
@@ -128,11 +128,10 @@ static void hv_printHook(double timestamp, const char *name, const char *s,
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
   if (receiverName[0] == '#') { // minimise overhead of sendhook
-    struct timespec *tick = (struct timespec *) userData;
-    struct timespec tock, result;
+    struct timespec tock, diff_tick;
     clock_gettime(CLOCK_REALTIME, &tock);
-    timespec_subtract(&result, &tock, tick);
-    const int64_t elapsed_ns = (((int64_t) result.tv_sec) * SEC_TO_NS_L) + result.tv_nsec;
+    timespec_subtract(&diff_tick, &tock, (struct timespec *) userData);
+    const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
     const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
     printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
 
@@ -170,7 +169,7 @@ static void printWlanIpPort() {
 
 static void printClockResolution() {
   struct timespec tick;
-  clock_getres(CLOCK_MONOTONIC, &tick);
+  clock_getres(CLOCK_REALTIME, &tick);
   printf("Clock resolution: %ins\n", tick.tv_nsec);
 }
 
@@ -192,7 +191,7 @@ int main(int argc, char *argv[]) {
   }
 */
 
-  struct timespec start_tick, tock, dtick;
+  struct timespec start_tick, tock, diff_tick;
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -209,16 +208,14 @@ int main(int argc, char *argv[]) {
     hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
     clock_gettime(CLOCK_REALTIME, &tock);
 
-    timespec_subtract(&dtick, &tock, &start_tick);
-    const int64_t elapsed_ns = (((int64_t) dtick.tv_sec) * SEC_TO_NS_L) + dtick.tv_nsec;
-
+    timespec_subtract(&diff_tick, &tock, &start_tick);
+    const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
     const int64_t block_ns = (int64_t) (hv_getCurrentTime(hv_context) * 1000000000.0);
-
     const int64_t sleep_ns = block_ns - elapsed_ns;
     if (sleep_ns > 0) {
       struct timespec sleep_nano;
+      // there is never a need to sleep longer than 1 second (famous last words...)
       sleep_nano.tv_sec = 0;
-      // nothing will ever take longer than 1 second (famous last words...)
       sleep_nano.tv_nsec = (long) sleep_ns;
       nanosleep(&sleep_nano, NULL);
     }
