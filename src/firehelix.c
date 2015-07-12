@@ -47,15 +47,17 @@ struct bcm2835_peripheral {
 
 struct bcm2835_peripheral gpio = {GPIO_BASE};
 
-#define PIN_07 4
+#define PIN_04 4
 
 #define INP_GPIO(g) *(gpio.addr + ((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
 // sets bits which are 1 ignores bits which are 0
-#define GPIO_SET(g) *(gpio.addr + 7) = (1 << (g))
+#define GPIO_SET0(g) *(gpio.addr + 7) = (1 << (g))
+#define GPIO_SET1(g) *(gpio.addr + 8) = (1 << (g))
 // clears bits which are 1 ignores bits which are 0
-#define GPIO_CLR(g) *(gpio.addr + 10) = (1 << (g))
-#define GPIO_READ(g) *(gpio.addr + 13) &= (1 << (g))
+#define GPIO_CLR0(g) *(gpio.addr + 10) = (1 << (g))
+#define GPIO_CLR1(g) *(gpio.addr + 11) = (1 << (g))
+#define GPIO_READ(g) *(gpio.addr + 13) &= (1 << (g)) // NOTE(mhroth): unused for now
 
 #define MMAP_PAGE_SIZE 4096
 #define MMAP_BLOCK_SIZE 4096
@@ -64,9 +66,7 @@ struct bcm2835_peripheral gpio = {GPIO_BASE};
 #define HEAVY_BLOCKSIZE 256 // samples
 
 #define SEC_TO_NS 1000000000
-#define SEC_TO_MS 1000
 
-// Some forward declarations...
 // Exposes the physical address defined in the passed structure using mmap on /dev/mem
 static int map_peripheral(struct bcm2835_peripheral *p) {
   // Open /dev/mem
@@ -133,8 +133,8 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
 
     if (!strncmp(receiverName, "#PIN_00", 7)) {
-      if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
-      else GPIO_SET(PIN_07);
+      if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR0(PIN_04);
+      else GPIO_SET0(PIN_04);
     } else if (!strncmp(receiverName, "#PIN_01", 7)) {
       // TODO(mhroth): etc.
     }
@@ -148,7 +148,6 @@ static void printWlanIpPort() {
   struct ifaddrs *ifaddr = NULL;
   char host[INET_ADDRSTRLEN];
   getifaddrs(&ifaddr);
-
   for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
     if (!strncmp(ifa->ifa_name, "wlan0", 5)) { // only display IP for interface wlan0
       if (ifa->ifa_addr->sa_family == AF_INET) {
@@ -159,7 +158,6 @@ static void printWlanIpPort() {
       }
     }
   }
-
   freeifaddrs(ifaddr);
 }
 
@@ -168,6 +166,8 @@ static void printClockResolution() {
   clock_getres(CLOCK_REALTIME, &tick);
   printf("Clock resolution: %ins\n", tick.tv_nsec);
 }
+
+void configurePinsForOutput();
 
 int main(int argc, char *argv[]) {
   printf("Welcome to Firehelix - Burning Man 2015.\n");
@@ -186,9 +186,7 @@ int main(int argc, char *argv[]) {
       return -1;
   }
 
-  // configure pins for output
-  INP_GPIO(PIN_07);
-  OUT_GPIO(PIN_07);
+  configurePinsForOutput();
 
   struct timespec start_tick, tock, diff_tick;
 
@@ -232,4 +230,13 @@ int main(int argc, char *argv[]) {
   printf("done.\n");
 
   return 0;
+}
+
+// configure all GPIO pins for output
+// NOTE(mhroth): confirm with '$ sudo raspi-gpio get'
+static void configurePinsForOutput() {
+  for (int i = 0; i < 32; i++) {
+    INP_GPIO(i);
+    OUT_GPIO(i);
+  }
 }
