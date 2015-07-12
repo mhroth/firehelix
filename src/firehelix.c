@@ -21,8 +21,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/mman.h>
-#include <sys/time.h> // gettimeofday
-#include <time.h> // nanosleep
+#include <time.h> // nanosleep, clock_gettime
 #include <unistd.h> // for close
 
 #include "heavy/Heavy_firehelix.h"
@@ -33,6 +32,8 @@
 
 // https://www.raspberrypi.org/forums/viewtopic.php?t=61665&p=479174
 // https://www.raspberrypi.org/documentation/hardware/computemodule/cm-peri-sw-guide.md
+// http://elinux.org/RPi_BCM2835_GPIOs
+// https://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
 
 #define IOBASE 0x20000000
 #define GPIO_BASE (IOBASE + 0x200000)
@@ -55,10 +56,6 @@ struct bcm2835_peripheral gpio = {GPIO_BASE};
 // clears bits which are 1 ignores bits which are 0
 #define GPIO_CLR(g) *(gpio.addr + 10) = (1 << (g))
 #define GPIO_READ(g) *(gpio.addr + 13) &= (1 << (g))
-
-// configure pins for output
-// INP_GPIO(PIN_07);
-// OUT_GPIO(PIN_07);
 
 #define MMAP_PAGE_SIZE 4096
 #define MMAP_BLOCK_SIZE 4096
@@ -136,9 +133,8 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
 
     if (!strncmp(receiverName, "#PIN_00", 7)) {
-      // // TODO(mhroth): do this correctly
-      // if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
-      // else GPIO_SET(PIN_07);
+      if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
+      else GPIO_SET(PIN_07);
     } else if (!strncmp(receiverName, "#PIN_01", 7)) {
       // TODO(mhroth): etc.
     }
@@ -184,12 +180,15 @@ int main(int argc, char *argv[]) {
 
   // register the SIGINT handler
   signal(SIGINT, &sigintHandler);
-/*
-  if(map_peripheral(&gpio) == -1) {
+
+  if (map_peripheral(&gpio) == -1) {
       printf("Failed to map the physical GPIO registers into the virtual memory space.\n");
       return -1;
   }
-*/
+
+  // configure pins for output
+  INP_GPIO(PIN_07);
+  OUT_GPIO(PIN_07);
 
   struct timespec start_tick, tock, diff_tick;
 
@@ -224,8 +223,8 @@ int main(int argc, char *argv[]) {
   printf("Firehelix shutting down... ");
 
   // TODO(mhroth): set all pins to 0 and unmap everything
-  //GPIO_CLR(PIN_07);
-  //unmap_peripheral(&gpio);
+  GPIO_CLR(PIN_07);
+  unmap_peripheral(&gpio);
 
   // free heavy
   hv_firehelix_free(hv_context);
