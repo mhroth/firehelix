@@ -141,11 +141,11 @@ static void hv_sendHook(double timestamp, const char *receiverName,
 
 static int openOscSocket() {
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  fcntl(fd, F_SETFL, O_NONBLOCK); // set the socket to non-blocking
   struct sockaddr_in sin;
-  sin.sin_len = sizeof(struct sockaddr_in);
   sin.sin_family = AF_INET;
   sin.sin_port = htons(2015);
-  sin.sin_addr = INADDR_ANY;
+  sin.sin_addr.s_addr = INADDR_ANY;
   bind(fd, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
   return fd;
 }
@@ -202,10 +202,12 @@ void main(int argc, char *argv[]) {
   printf("done.\n");
 
   const int socket_fd = openOscSocket();
-  char buffer[1024];
+  char buffer[1024]; // buffer into which network data is received
 
   struct timespec start_tick, tock, diff_tick;
   struct sockaddr_in sin;
+  int len = 0;
+  int sa_len = sizeof(struct sockaddr_in);
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -218,9 +220,9 @@ void main(int argc, char *argv[]) {
   printf("Starting runloop.\n");
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
-    while ((int len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, &sin, sizeof(sin))) > 0) {
+    while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       buffer[len] = '0';
-      printf("Received: %s\n", buffer);
+      printf("Received: [%i] %s\n", len, buffer);
     }
 
     // process Heavy
@@ -241,6 +243,9 @@ void main(int argc, char *argv[]) {
     else printf("Buffer underrun by %llins\n", -1*sleep_ns);
   }
   printf("Firehelix shutting down... ");
+
+  // close the UDP socket
+  close(socket_fd);
 
   // clear all pins
   for (int i = 0; i < NUM_GPIO_PINS; i++) GPIO_CLR(i);
