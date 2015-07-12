@@ -140,18 +140,21 @@ static void hv_sendHook(double timestamp, const char *receiverName,
 }
 
 // http://man7.org/linux/man-pages/man3/getifaddrs.3.html
+// http://beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html
+// http://beej.us/guide/bgnet/output/html/multipage/sockaddr_inman.html
 static void printWlanIpPort() {
   struct ifaddrs *ifaddr = NULL;
-  char host[256];
+  char host[INET_ADDRSTRLEN];
   getifaddrs(&ifaddr);
 
   for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-    printf("%s\n", ifa->ifa_name);
-    if (!strncmp(ifa->ifa_name, "wlan0", 5)) {
-      getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host,
-          sizeof(host), NULL, 0, NI_NUMERICHOST);
-      printf("Network: %s:2015\n", host);
-      return;
+    if (!strncmp(ifa->ifa_name, "wlan0", 5)) { // only display IP for interface wlan0
+      if (ifa->ifa_addr->sa_family == AF_INET) {
+        struct sockaddr_in *sa = (struct sockaddr_in *) ifa->ifa_addr;
+        inet_ntop(AF_INET, &(sa->sin_addr), host, INET_ADDRSTRLEN);
+        printf("WiFi: %s:2015\n", host);
+        break;
+      }
     }
   }
 
@@ -159,7 +162,7 @@ static void printWlanIpPort() {
 }
 
 int main(int argc, char *argv[]) {
-  printf("Welcome to Firehelix @ Burning Man 2015.\n");
+  printf("Welcome to Firehelix - Burning Man 2015.\n");
   printf("PID: %i\n", getpid());
   printf("Audio: %i @ %gHz\n", HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE);
   printWlanIpPort();
