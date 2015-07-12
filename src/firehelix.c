@@ -23,11 +23,18 @@
 #include <time.h> // nanosleep
 #include <unistd.h> // for close
 
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <ifaddrs.h>
+
 #include "heavy/Heavy_firehelix.h"
 
 // http://www.susa.net/wordpress/2012/06/raspberry-pi-relay-using-gpio/
 // http://pieter-jan.com/node/15
 // https://enzienaudio.com/h/mhroth/firehelix/
+
+// https://www.raspberrypi.org/forums/viewtopic.php?t=61665&p=479174
+// https://www.raspberrypi.org/documentation/hardware/computemodule/cm-peri-sw-guide.md
 
 #define IOBASE 0x20000000
 #define GPIO_BASE (IOBASE + 0x200000)
@@ -116,7 +123,8 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     struct timeval *tick = (struct timeval *) userData;
     struct timeval tock;
     gettimeofday(&tock, NULL);
-    const int64_t elapsed_ns = ((tock.tv_sec - tick->tv_sec) * SEC_TO_NS_L) + // sec to ns
+    const int64_t elapsed_ns =
+        ((tock.tv_sec - tick->tv_sec) * SEC_TO_NS_L) + // sec to ns
         ((tock.tv_usec - tick->tv_usec) * US_TO_NS_L); // us to ns
     const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
     printf("[clock drift %.3f]: %s.\n", elapsed_ms/timestamp, receiverName);
@@ -131,11 +139,30 @@ static void hv_sendHook(double timestamp, const char *receiverName,
   }
 }
 
+// http://man7.org/linux/man-pages/man3/getifaddrs.3.html
+static void printWlanIpPort() {
+  struct ifaddrs *ifaddr = NULL;
+  char host[256];
+  getifaddrs(&ifaddr);
+
+  for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+    printf("%s\n", ifa->ifa_name);
+    if (!strncmp(ifa->ifa_name, "wlan0", 5)) {
+      getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host,
+          sizeof(host), NULL, 0, NI_NUMERICHOST);
+      printf("Network: %s:2015\n", host);
+      return;
+    }
+  }
+
+  freeifaddrs(ifaddr);
+}
+
 int main(int argc, char *argv[]) {
   printf("Welcome to Firehelix @ Burning Man 2015.\n");
   printf("PID: %i\n", getpid());
   printf("Audio: %i @ %gHz\n", HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE);
-  printf("Network: xxx.xxx.xxx.xxx:2015\n");
+  printWlanIpPort();
   printf("Press Ctrl+C to exit.\n");
   printf("\n");
 
@@ -169,7 +196,8 @@ int main(int argc, char *argv[]) {
     hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
     gettimeofday(&tock, NULL);
 
-    const int64_t elapsed_ns = ((tock.tv_sec - tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
+    const int64_t elapsed_ns =
+        ((tock.tv_sec - tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
         ((tock.tv_usec - tick.tv_usec) * US_TO_NS_L); // us to ns
 
     const int64_t sleep_us = blocksize_ns - elapsed_ns;
