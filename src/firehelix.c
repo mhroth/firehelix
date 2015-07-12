@@ -14,18 +14,16 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <arpa/inet.h>
+#include <fcntl.h> // for open
+#include <ifaddrs.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <fcntl.h> // for open
 #include <sys/mman.h>
 #include <sys/time.h> // gettimeofday
 #include <time.h> // nanosleep
 #include <unistd.h> // for close
-
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <ifaddrs.h>
 
 #include "heavy/Heavy_firehelix.h"
 
@@ -178,10 +176,10 @@ int main(int argc, char *argv[]) {
   }
 */
 
-  const int64_t blocksize_ns =
-      (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
+  // const int64_t blocksize_ns =
+  //     (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
 
-  struct timeval start_tick, tick, tock;
+  struct timeval start_tick, tock;
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -195,15 +193,17 @@ int main(int argc, char *argv[]) {
   gettimeofday(&start_tick, NULL); // get wall time start of runloop
   while (_keepRunning) {
     // process Heavy
-    gettimeofday(&tick, NULL);
+    // gettimeofday(&tick, NULL);
     hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
     gettimeofday(&tock, NULL);
 
     const int64_t elapsed_ns =
-        ((tock.tv_sec - tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
-        ((tock.tv_usec - tick.tv_usec) * US_TO_NS_L); // us to ns
+        ((tock.tv_sec - start_tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
+        ((tock.tv_usec - start_tick.tv_usec) * US_TO_NS_L); // us to ns
 
-    const int64_t sleep_us = blocksize_ns - elapsed_ns;
+    const int64_t block_ns = (int64_t) (hv_getCurrentTime(hv_context) * 1000000000.0);
+
+    const int64_t sleep_us = block_ns - elapsed_ns;
     if (sleep_us > 0) {
       struct timespec sleep_nano;
       // sleep_nano.tv_sec = (time_t) (sleep_us/SEC_TO_NS_L);
