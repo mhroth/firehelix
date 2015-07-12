@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <time.h> // nanosleep, clock_gettime
 #include <unistd.h> // for close
 
@@ -138,6 +139,17 @@ static void hv_sendHook(double timestamp, const char *receiverName,
   }
 }
 
+static int openOscSocket() {
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  struct sockaddr_in sin;
+  sin.sin_len = sizeof(struct sockaddr_in);
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons(2015);
+  sin.sin_addr = INADDR_ANY;
+  bind(fd, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
+  return fd;
+}
+
 // http://man7.org/linux/man-pages/man3/getifaddrs.3.html
 // http://beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html
 // http://beej.us/guide/bgnet/output/html/multipage/sockaddr_inman.html
@@ -189,7 +201,11 @@ void main(int argc, char *argv[]) {
   }
   printf("done.\n");
 
+  const int socket_fd = openOscSocket();
+  char buffer[1024];
+
   struct timespec start_tick, tock, diff_tick;
+  struct sockaddr_in sin;
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -202,6 +218,11 @@ void main(int argc, char *argv[]) {
   printf("Starting runloop.\n");
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
+    while ((int len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, &sin, sizeof(sin))) > 0) {
+      buffer[len] = '0';
+      printf("Received: %s\n", buffer);
+    }
+
     // process Heavy
     hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
     clock_gettime(CLOCK_REALTIME, &tock);
