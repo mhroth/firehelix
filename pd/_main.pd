@@ -1,6 +1,9 @@
-#N canvas 386 187 218 107 10;
+#N canvas 386 187 167 122 10;
 #X obj 25 17 loadbang;
 #X obj 25 42 metro 1000;
-#X obj 25 66 s #PIN_00;
+#X obj 25 86 s #PIN_00;
+#X obj 25 65 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0 1
+;
 #X connect 0 0 1 0;
-#X connect 1 0 2 0;
+#X connect 1 0 3 0;
+#X connect 3 0 2 0;

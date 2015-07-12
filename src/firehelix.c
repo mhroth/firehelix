@@ -163,9 +163,7 @@ static void printClockResolution() {
   printf("Clock resolution: %ins\n", tick.tv_nsec);
 }
 
-void configurePinsForOutput();
-
-int main(int argc, char *argv[]) {
+void main(int argc, char *argv[]) {
   printf("Welcome to Firehelix - Burning Man 2015.\n");
   printf("PID: %i\n", getpid());
   printf("Audio: %i @ %gHz\n", HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE);
@@ -177,14 +175,18 @@ int main(int argc, char *argv[]) {
   // register the SIGINT handler
   signal(SIGINT, &sigintHandler);
 
-  if (map_peripheral(&gpio) == -1) {
-      printf("Failed to map the physical GPIO registers into the virtual memory space.\n");
-      return -1;
+  // map peripherals
+  map_peripheral(&gpio);
+
+  // configure all 46 GPIO pins for output
+  // NOTE(mhroth): confirm state with '$ sudo raspi-gpio get'
+  printf("Initialising GPIO pins... ");
+  for (int i = 0; i < NUM_GPIO_PINS; i++) {
+    INP_GPIO(i); // clear all config bits for pin
+    OUT_GPIO(i); // set pin as output
+    GPIO_CLR(i); // clear output
   }
-
-  configurePinsForOutput();
-
-  struct timespec start_tick, tock, diff_tick;
+  printf("done.\n");
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -195,6 +197,7 @@ int main(int argc, char *argv[]) {
   printf("done.\n");
 
   printf("Starting runloop.\n");
+  struct timespec start_tick, tock, diff_tick;
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
     // process Heavy
@@ -226,16 +229,4 @@ int main(int argc, char *argv[]) {
   hv_firehelix_free(hv_context);
 
   printf("done.\n");
-
-  return 0;
-}
-
-// configure all 46 GPIO pins for output
-// NOTE(mhroth): confirm state with '$ sudo raspi-gpio get'
-void configurePinsForOutput() {
-  for (int i = 0; i < NUM_GPIO_PINS; i++) {
-    INP_GPIO(i); // clear all config bits for pin
-    OUT_GPIO(i); // set pin as output
-    GPIO_CLR(i); // clear output
-  }
 }

@@ -25,7 +25,7 @@
 #define _HEAVY_UTILS_H_
 
 // Type definitions
-#if defined(_WIN32) || defined(_WIN64) || defined(WINAPI_FAMILY)
+#if _WIN32 || _WIN64 || WINAPI_FAMILY
 #define HV_WIN 1
 #include <stddef.h>
 #if defined (_MSC_VER)
@@ -35,14 +35,14 @@
 #define hv_uint32_t unsigned int
 #define hv_uint16_t unsigned short
 #define hv_int32_t int
-#elif defined(__APPLE__) && defined(__MACH__)
+#elif __APPLE__ && __MACH__
 #define HV_APPLE 1
 #include <stddef.h>
 #define hv_size_t size_t
 #define hv_uint32_t unsigned int
 #define hv_uint16_t unsigned short
 #define hv_int32_t int
-#elif defined (__unix__) || (__unix)
+#elif __unix__ || __unix
 #define HV_UNIX 1
 #include <stddef.h>
 #include <stdint.h>
