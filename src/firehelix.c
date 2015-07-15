@@ -209,6 +209,7 @@ void main(int argc, char *argv[]) {
   struct sockaddr_in sin;
   int len = 0;
   int sa_len = sizeof(struct sockaddr_in);
+  tosc_tinyosc osc;
 
   // initialise and configure Heavy
   printf("Instantiating and configuring Heavy... ");
@@ -222,11 +223,16 @@ void main(int argc, char *argv[]) {
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
-      buffer[len] = '0';
-
-      tosc_tinyosc osc;
       tosc_init(&osc, buffer, len);
-      printf("Received: [%i] %s %s\n", len, osc->address, osc->format);
+      printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
+      for (int i = 0; i < osc.size; i++) {
+        switch (osc.format[i]) {
+          case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
+          case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
+          default: continue;
+        }
+      }
+      printf("\n");
 
       // hv_vscheduleMessage(hv_context, "receiverName", "f", f);
     }

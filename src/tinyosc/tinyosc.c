@@ -47,24 +47,31 @@ Received: [20] /3/xy
 2f|33|2f|78|79|0|0|0|2c|66|66|0|3e|d6|c5|83|3e|dd|7b|af|
 */
 
+#include <netinet/in.h>
+#include <string.h>
 #include "tinyosc.h"
 
-int tosc_init(tosc_tinyosc *o, const char *buffer, int len) {
+int tosc_init(tosc_tinyosc *o, const char *buffer, const int len) {
   o->buffer = buffer;
   o->len = len;
 
   // extract the address
   int i = 0;
   while (i < len && buffer[i] != '\0') ++i;
+  ++i; // address string includes trailing '\0'
   if (i >= TOSC_MAX_LEN_ADDRESS) return -1;
   strncpy(o->address, buffer, i);
 
   // extract the format
   while (i < len && buffer[i] != ',') ++i; // find the format comma
+  ++i; // skip the comma
   int j = i;
   for (; j < len && buffer[j] != '\0'; ++j); // find the end of the format
+  o->size = (j-i);
+  strncpy(o->format, buffer+i, o->size);
+  o->format[o->size] = '\0';
+  ++j;  // include the '\0'
   if ((j-i) >= TOSC_MAX_LEN_FORMAT) return -2;
-  strncpy(o->format, buffer+i, j-i);
 
   while (j & 0x3) ++j; // advance to the next multiple of 4
   o->marker = buffer + j;
@@ -73,13 +80,14 @@ int tosc_init(tosc_tinyosc *o, const char *buffer, int len) {
 }
 
 int32_t tosc_getNextInt32(tosc_tinyosc *o) {
-  const int32_t i = *((int32_t *) o->marker);
+  const int32_t i = (int32_t) ntohl(*((uint32_t *) o->marker)); // convert from big-endian
   o->marker += 4;
   return i;
 }
 
 float tosc_getNextFloat(tosc_tinyosc *o) {
-  const float f = *((float *) o->marker);
+  const uint32_t i = ntohl(*((uint32_t *) o->marker)); // convert from big-endian
+  const float f = *((float *) (&i));
   o->marker += 4;
   return f;
 }

@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <types.h>
+#include <stdint.h>
 
 #define TOSC_MAX_LEN_ADDRESS 32
 #define TOSC_MAX_LEN_FORMAT 16
@@ -25,9 +25,10 @@ typedef struct tosc_tinyosc {
   char address[TOSC_MAX_LEN_ADDRESS];
   char format[TOSC_MAX_LEN_FORMAT];
   int len; // length of the buffer data
+  int size; // number of elements (== strlen(format))
 } tosc_tinyosc;
 
-int tosc_init(tosc_tinyosc *o, const char *buffer, int len);
+int tosc_init(tosc_tinyosc *o, const char *buffer, const int len);
 
 int32_t tosc_getNextInt32(tosc_tinyosc *o);
 
