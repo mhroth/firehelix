@@ -26,6 +26,7 @@
 #include <unistd.h> // for close
 
 #include "heavy/Heavy_firehelix.h"
+#include "tinyosc/tinyosc.h"
 
 // http://www.susa.net/wordpress/2012/06/raspberry-pi-relay-using-gpio/
 // http://pieter-jan.com/node/15
@@ -222,7 +223,12 @@ void main(int argc, char *argv[]) {
   while (_keepRunning) {
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       buffer[len] = '0';
-      printf("Received: [%i] %s\n", len, buffer);
+
+      tosc_tinyosc osc;
+      tosc_init(&osc, buffer, len);
+      printf("Received: [%i] %s %s\n", len, osc->address, osc->format);
+
+      // hv_vscheduleMessage(hv_context, "receiverName", "f", f);
     }
 
     // process Heavy
