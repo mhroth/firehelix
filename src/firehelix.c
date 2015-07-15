@@ -225,7 +225,7 @@ void main(int argc, char *argv[]) {
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       tosc_init(&osc, buffer, len);
       printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
-      for (int i = 0; i < osc.size; i++) {
+      for (int i = 0; osc.format[i] != '\0'; i++) {
         switch (osc.format[i]) {
           case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
           case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;

@@ -25,7 +25,6 @@ typedef struct tosc_tinyosc {
   char address[TOSC_MAX_LEN_ADDRESS];
   char format[TOSC_MAX_LEN_FORMAT];
   int len; // length of the buffer data
-  int size; // number of elements (== strlen(format))
 } tosc_tinyosc;
 
 int tosc_init(tosc_tinyosc *o, const char *buffer, const int len);
