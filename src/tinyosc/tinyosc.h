@@ -30,4 +30,4 @@ int32_t tosc_getNextInt32(tosc_tinyosc *o);
 
 float tosc_getNextFloat(tosc_tinyosc *o);
 
-int tosc_getNextString(tosc_tinyosc *o, char *buffer, int len);
+const char *tosc_getNextString(tosc_tinyosc *o);
