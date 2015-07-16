@@ -16,14 +16,11 @@
 
 #include <stdint.h>
 
-#define TOSC_MAX_LEN_ADDRESS 32
-#define TOSC_MAX_LEN_FORMAT 16
-
 typedef struct tosc_tinyosc {
-  const char *buffer; // the original message data
+  const char *address;
+  const char *format;
   const char *marker;
-  char address[TOSC_MAX_LEN_ADDRESS];
-  char format[TOSC_MAX_LEN_FORMAT];
+  const char *buffer; // the original message data
   int len; // length of the buffer data
 } tosc_tinyosc;
 

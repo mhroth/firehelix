@@ -223,18 +223,19 @@ void main(int argc, char *argv[]) {
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
-      tosc_init(&osc, buffer, len);
-      printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
-      for (int i = 0; osc.format[i] != '\0'; i++) {
-        switch (osc.format[i]) {
-          case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
-          case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
-          default: continue;
+      if (!tosc_init(&osc, buffer, len)) { // parse the osc packet, continue on success
+        printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
+        for (int i = 0; osc.format[i] != '\0'; i++) {
+          switch (osc.format[i]) {
+            case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
+            case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
+            default: continue;
+          }
         }
-      }
-      printf("\n");
+        printf("\n");
 
-      // hv_vscheduleMessage(hv_context, "receiverName", "f", f);
+        // hv_vscheduleMessage(hv_context, "receiverName", "f", f);
+      }
     }
 
     // process Heavy

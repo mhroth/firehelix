@@ -15,31 +15,29 @@
  */
 
 #include <netinet/in.h>
-#include <string.h>
 #include "tinyosc.h"
 
+// http://opensoundcontrol.org/spec-1_0
 int tosc_init(tosc_tinyosc *o, const char *buffer, const int len) {
+  // extract the address
+  o->address = buffer; // address string is null terminated
+  // NOTE(mhroth): if there's a comma in the address, that's weird
+
+  int i = 0;
+  while (i < len && buffer[i] != ',') ++i; // find the format comma
+  // TODO(mhroth): does not check for null terminated address string
+  if (i == len) return -1; // error while looking for format string
+  // format string is null terminated
+  o->format = buffer + i + 1; // format starts after comma
+
+  while (i < len && buffer[i] != '\0') ++i;
+  if (i == len) return -2; // format string not null terminated
+
+  ++i; while (i & 0x3) ++i; // advance to the next multiple of 4
+  o->marker = buffer + i;
+
   o->buffer = buffer;
   o->len = len;
-
-  // extract the address
-  int i = 0;
-  while (i < len && buffer[i] != '\0') ++i;
-  ++i; // address string includes trailing '\0'
-  if (i >= TOSC_MAX_LEN_ADDRESS) return -1;
-  memcpy(o->address, buffer, i);
-
-  // extract the format
-  while (i < len && buffer[i] != ',') ++i; // find the format comma
-  ++i; // skip the comma
-  int j = i;
-  for (; j < len && buffer[j] != '\0'; ++j); // find the end of the format
-  ++j;  // include the '\0'
-  memcpy(o->format, buffer+i, (j-i));
-  if ((j-i) >= TOSC_MAX_LEN_FORMAT) return -2;
-
-  while (j & 0x3) ++j; // advance to the next multiple of 4
-  o->marker = buffer + j;
 
   return 0;
 }
@@ -56,7 +54,12 @@ float tosc_getNextFloat(tosc_tinyosc *o) {
   return *((float *) (&i));
 }
 
-int tosc_getNextString(tosc_tinyosc *o, char *buffer, int len) {
-  // TODO(mhroth)
-  return -1;
+const char *tosc_getNextString(tosc_tinyosc *o) {
+  // TODO(mhroth): test this
+  int i = o->marker - o->buffer; // offset
+  const char *s = o->marker;
+  while (*s != '\0') ++i;
+  ++i; while (i & 0x3) ++i; // advance to next multiple of 4
+  o->marker = o->buffer + i;
+  return s;
 }
