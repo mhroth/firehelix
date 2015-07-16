@@ -27,7 +27,7 @@ int tosc_init(tosc_tinyosc *o, const char *buffer, const int len) {
   while (i < len && buffer[i] != '\0') ++i;
   ++i; // address string includes trailing '\0'
   if (i >= TOSC_MAX_LEN_ADDRESS) return -1;
-  strncpy(o->address, buffer, i);
+  memcpy(o->address, buffer, i);
 
   // extract the format
   while (i < len && buffer[i] != ',') ++i; // find the format comma
@@ -35,7 +35,7 @@ int tosc_init(tosc_tinyosc *o, const char *buffer, const int len) {
   int j = i;
   for (; j < len && buffer[j] != '\0'; ++j); // find the end of the format
   ++j;  // include the '\0'
-  strncpy(o->format, buffer+i, (j-i));
+  memcpy(o->format, buffer+i, (j-i));
   if ((j-i) >= TOSC_MAX_LEN_FORMAT) return -2;
 
   while (j & 0x3) ++j; // advance to the next multiple of 4
@@ -52,9 +52,8 @@ int32_t tosc_getNextInt32(tosc_tinyosc *o) {
 
 float tosc_getNextFloat(tosc_tinyosc *o) {
   const uint32_t i = ntohl(*((uint32_t *) o->marker)); // convert from big-endian
-  const float f = *((float *) (&i));
   o->marker += 4;
-  return f;
+  return *((float *) (&i));
 }
 
 int tosc_getNextString(tosc_tinyosc *o, char *buffer, int len) {
