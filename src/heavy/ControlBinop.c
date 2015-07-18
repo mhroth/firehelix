@@ -40,8 +40,8 @@ static float cBinop_perform_op(BinopType op, float f, const float k) {
       f = (k == 0.0f) ? 0.0f : (float) ((int) f % (int) k);
       return (f < 0.0f) ? f + fabsf(k) : f;
     }
-    case HV_BINOP_BIT_LEFTSHIFT: return (float) ((int) f << (int) k);
-    case HV_BINOP_BIT_RIGHTSHIFT: return (float) ((int) f >> (int) k);
+    case HV_BINOP_BIT_LEFTSHIFT: return (float) (((int) f) << ((int) k));
+    case HV_BINOP_BIT_RIGHTSHIFT: return (float) (((int) f) >> ((int) k));
     case HV_BINOP_BIT_AND: return (float) ((int) f & (int) k);
     case HV_BINOP_BIT_XOR: return (float) ((int) f ^ (int) k);
     case HV_BINOP_BIT_OR: return (float) ((int) f | (int) k);
@@ -91,8 +91,6 @@ void cBinop_k_onMessage(HvBase *_c, void *o, BinopType op, const float k,
     int letIn, const HvMessage *const m,
     void (*sendMessage)(HvBase *, int, const HvMessage *const)) {
   if (msg_isFloat(m, 0)) {
-    // NOTE(joe): supporting Pd's ability to perform operations of packs
-    // of floats is likely to not be supported in the future.
     // NOTE(mhroth): Heavy does not support sending bangs to binop objects to return the previous output
     float f = (msg_isFloat(m, 1)) ? msg_getFloat(m, 1) : k;
     HvMessage *n = HV_MESSAGE_ON_STACK(1);
