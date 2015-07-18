@@ -51,8 +51,8 @@ struct bcm2835_peripheral gpio = {GPIO_BASE};
 
 #define INP_GPIO(g) *(gpio.addr + ((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
-#define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << (g))
-#define GPIO_CLR(g) *(gpio.addr + 10 + (g/32)) = (1 << (g))
+#define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << (g)) // TODO(mhroth): g > 31 will cause an error
+#define GPIO_CLR(g) *(gpio.addr + 10 + (g/32)) = (1 << (g)) // TODO(mhroth): g > 31 will cause an error
 #define GPIO_READ(g) *(gpio.addr + 13) &= (1 << (g)) // NOTE(mhroth): unused for now
 
 #define MMAP_PAGE_SIZE 4096
@@ -120,9 +120,6 @@ static void hv_printHook(double timestamp, const char *name, const char *s,
   printf("[@h %.3fms] %s: %s\n", timestamp, name, s);
 }
 
-static void hv_sendHook(double timestamp, const char *receiverName,
-    const HvMessage *m, void *userData) {
-  if (receiverName[0] == '#') { // minimise overhead of sendhook
 /*
     struct timespec tock, diff_tick;
     clock_gettime(CLOCK_REALTIME, &tock);
@@ -131,13 +128,19 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
     printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
 */
-    if (!strncmp(receiverName, "#PIN_00", 7)) {
-      if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(0);
-      else GPIO_SET(0);
-    } else if (!strncmp(receiverName, "#PIN_01", 7)) {
-      // TODO(mhroth): etc.
+static void hv_sendHook(double timestamp, const char *receiverName,
+    const HvMessage *m, void *userData) {
+  if (!strncmp(receiverName, "#toGPIO", 7)) {
+    const int pin = (int) hv_msg_getFloat(m, 0); // pin is zero indexed
+    if (pin >= 0 && pin < NUM_GPIO_PINS) { // error checking
+      if (hv_msg_getFloat(m, 1) == 0.0f) GPIO_CLR(pin);
+      else GPIO_SET(pin);
+      return;
     }
   }
+  char *msg_string = hv_msg_toString(m);
+  printf("HVY [%0.3fms] (%s): %s\n", timestamp, receiverName, msg_string);
+  free(msg_string);
 }
 
 static int openOscSocket() {
