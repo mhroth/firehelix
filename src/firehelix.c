@@ -183,7 +183,9 @@ static void printClockResolution() {
 void main(int argc, char *argv[]) {
   printf("Welcome to Firehelix - Burning Man 2015.\n");
   printf("PID: %i\n", getpid());
-  printf("Audio: %i @ %gHz\n", HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE);
+  printf("Audio: %i @ %gHz (%0.3fms)\n",
+      HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE,
+      1000.0*HEAVY_BLOCKSIZE/HEAVY_SAMPLE_RATE);
   printWlanIpPort();
   printClockResolution();
   printf("Press Ctrl+C to exit.\n");
