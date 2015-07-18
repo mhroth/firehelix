@@ -66,7 +66,7 @@ int hTable_resize(HvTable *o, hv_uint32_t newLength) {
   if (newSize > o->size) hv_clear_buffer(b+o->size, newSize-o->size); // clear new parts of the buffer
   if (b != o->buffer) {
     // the buffer has been reallocated, ensure that it is on a 32-byte boundary
-    if ((((unsigned long long) b) & 0x10L) == 0) {
+    if ((((uintptr_t) (const void *) b) & 0x10) == 0) {
       o->buffer = b;
     } else {
       float *c = (float *) hv_malloc(newBytes);

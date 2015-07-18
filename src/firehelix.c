@@ -14,36 +14,46 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <arpa/inet.h>
+#include <fcntl.h> // for open
+#include <ifaddrs.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <fcntl.h>
 #include <sys/mman.h>
-#include <sys/time.h>
+#include <sys/socket.h>
+#include <time.h> // nanosleep, clock_gettime
+#include <unistd.h> // for close
 
-#include "heavy/Heavy_heavy.h"
+#include "heavy/Heavy_firehelix.h"
+#include "tinyosc/tinyosc.h"
 
 // http://www.susa.net/wordpress/2012/06/raspberry-pi-relay-using-gpio/
 // http://pieter-jan.com/node/15
 // https://enzienaudio.com/h/mhroth/firehelix/
 
-#define IOBASE   0x20000000
+// https://www.raspberrypi.org/forums/viewtopic.php?t=61665&p=479174
+// https://www.raspberrypi.org/documentation/hardware/computemodule/cm-peri-sw-guide.md
+// http://elinux.org/RPi_BCM2835_GPIOs
+// https://www.raspberrypi.org/wp-content/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
 
+#define IOBASE 0x20000000
 #define GPIO_BASE (IOBASE + 0x200000)
 
-#define PIN_07 4
+struct bcm2835_peripheral {
+  unsigned long addr_p;
+  int mem_fd;
+  void *map;
+  volatile unsigned int *addr;
+};
+
+struct bcm2835_peripheral gpio = {GPIO_BASE};
 
 #define INP_GPIO(g) *(gpio.addr + ((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
-// sets bits which are 1 ignores bits which are 0
-#define GPIO_SET(g) *(gpio.addr + 7) = (1 << g)
-// clears bits which are 1 ignores bits which are 0
-#define GPIO_CLR(g) *(gpio.addr + 10) = (1 << g)
-#define GPIO_READ(g) *(gpio.addr + 13) &= (1<<(g))
-
-// configure pins for output
-INP_GPIO(PIN_07);
-OUT_GPIO(PIN_07);
+#define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << ((g)%32))
+#define GPIO_CLR(g) *(gpio.addr + 10 + (g/32)) = (1 << ((g)%32))
+#define GPIO_READ(g) *(gpio.addr + 13 + (g/32)) &= (1 << ((g)%32)) // NOTE(mhroth): unused for now
 
 #define MMAP_PAGE_SIZE 4096
 #define MMAP_BLOCK_SIZE 4096
@@ -51,23 +61,14 @@ OUT_GPIO(PIN_07);
 #define HEAVY_SAMPLE_RATE 48000.0 // Hz
 #define HEAVY_BLOCKSIZE 256 // samples
 
-#define SEC_TO_NS_L 1000000000L
-#define US_TO_NS_L 1000L
+#define SEC_TO_NS 1000000000
 
-struct bcm2835_peripheral {
-    unsigned long addr_p;
-    int mem_fd;
-    void *map;
-    volatile unsigned int *addr;
-};
+#define NUM_GPIO_PINS 46
 
-struct bcm2835_peripheral gpio = {GPIO_BASE};
-
-// Some forward declarations...
 // Exposes the physical address defined in the passed structure using mmap on /dev/mem
 static int map_peripheral(struct bcm2835_peripheral *p) {
   // Open /dev/mem
-  if ((p->mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
+  if ((p->mem_fd = open("/dev/mem", O_RDWR|O_SYNC)) < 0) {
     printf("Failed to open /dev/mem, try checking permissions.\n");
     return -1;
   }
@@ -96,79 +97,229 @@ static void unmap_peripheral(struct bcm2835_peripheral *p) {
   close(p->mem_fd);
 }
 
+static volatile bool _keepRunning = true;
+
 // http://stackoverflow.com/questions/4217037/catch-ctrl-c-in-c
 static void sigintHandler(int x) {
-  // TODO(mhroth): handle Ctrl+C
-  // e.g. set all pins to 0 and unmap everything
+  printf("Termination signal received.\n"); // handle Ctrl+C
   _keepRunning = false;
 }
 
+void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start)
+{
+  if (end->tv_nsec < start->tv_nsec) {
+    result->tv_sec = end->tv_sec - start->tv_sec - 1;
+    result->tv_nsec = SEC_TO_NS + end->tv_nsec - start->tv_nsec;
+  } else {
+    result->tv_sec = end->tv_sec - start->tv_sec;
+    result->tv_nsec = end->tv_nsec - start->tv_nsec;
+  }
+}
 static void hv_printHook(double timestamp, const char *name, const char *s,
     void *userData) {
-  printf("[@ %.3f] %s: %s\n", timestamp, name, s);
+  printf("[@h %.3fms] %s: %s\n", timestamp, name, s);
 }
 
+/*
+    struct timespec tock, diff_tick;
+    clock_gettime(CLOCK_REALTIME, &tock);
+    timespec_subtract(&diff_tick, &tock, (struct timespec *) userData);
+    const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
+    const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
+    printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
+*/
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
-  if (receiverName[0] == '#') { // minimise overhead of sendhook for
-    if (!strncmp(receiverName, "#PIN_00", 7)) {
-      // TODO(mhroth): do this correctly
-      if (hv_msg_getFloat(m, 0) == 0.0f) GPIO_CLR(PIN_07);
-      else GPIO_SET(PIN_07);
-    } else if (!strncmp(receiverName, "#PIN_01", 7)) {
-      // TODO(mhroth): etc.
+  if (!strncmp(receiverName, "#toGPIO", 7)) {
+    const int pin = (int) hv_msg_getFloat(m, 0); // pin is zero indexed
+    if (pin >= 0 && pin < NUM_GPIO_PINS) { // error checking
+      if (hv_msg_getFloat(m, 1) == 0.0f) GPIO_CLR(pin);
+      else GPIO_SET(pin);
+      return;
     }
   }
+  char *msg_string = hv_msg_toString(m);
+  printf("[@h %0.3fms] %s: %s\n", timestamp, receiverName, msg_string);
+  free(msg_string);
 }
 
-static volatile bool _keepRunning = true;
+static int openOscSocket() {
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  fcntl(fd, F_SETFL, O_NONBLOCK); // set the socket to non-blocking
+  struct sockaddr_in sin;
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons(2015);
+  sin.sin_addr.s_addr = INADDR_ANY;
+  bind(fd, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
+  return fd;
+}
 
-int main(int argc, char *argv[]) {
-  signal(SIGINT, &sigintHandler); // register the SIGINT handler
-
-  if(map_peripheral(&gpio) == -1) {
-      printf("Failed to map the physical GPIO registers into the virtual memory space.\n");
-      return -1;
+// http://man7.org/linux/man-pages/man3/getifaddrs.3.html
+// http://beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html
+// http://beej.us/guide/bgnet/output/html/multipage/sockaddr_inman.html
+static void printWlanIpPort() {
+  struct ifaddrs *ifaddr = NULL;
+  char host[INET_ADDRSTRLEN];
+  getifaddrs(&ifaddr);
+  for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+    if (!strncmp(ifa->ifa_name, "wlan0", 5)) { // only display IP for interface wlan0
+      if (ifa->ifa_addr->sa_family == AF_INET) {
+        struct sockaddr_in *sa = (struct sockaddr_in *) ifa->ifa_addr;
+        inet_ntop(AF_INET, &(sa->sin_addr), host, INET_ADDRSTRLEN);
+        printf("WiFi: %s:2015\n", host);
+        break;
+      }
+    }
   }
+  freeifaddrs(ifaddr);
+}
+
+static void printClockResolution() {
+  struct timespec tick;
+  clock_getres(CLOCK_REALTIME, &tick);
+  printf("Clock resolution: %ins\n", tick.tv_nsec);
+}
+
+void main(int argc, char *argv[]) {
+  printf("Welcome to Firehelix - Burning Man 2015.\n");
+  printf("PID: %i\n", getpid());
+  printf("Audio: %i @ %gHz (%0.3fms)\n",
+      HEAVY_BLOCKSIZE, HEAVY_SAMPLE_RATE,
+      1000.0*HEAVY_BLOCKSIZE/HEAVY_SAMPLE_RATE);
+  printWlanIpPort();
+  printClockResolution();
+  printf("Press Ctrl+C to exit.\n");
+  printf("\n");
+
+  // register the SIGINT handler
+  signal(SIGINT, &sigintHandler);
+
+  // map peripherals
+  map_peripheral(&gpio);
+
+  // configure all 46 GPIO pins for output
+  // NOTE(mhroth): confirm state with '$ sudo raspi-gpio get'
+  printf("Initialising GPIO pins... ");
+  for (int i = 0; i < NUM_GPIO_PINS; i++) {
+    INP_GPIO(i); // clear all config bits for pin
+    OUT_GPIO(i); // set pin as output
+    GPIO_CLR(i); // clear output
+  }
+  printf("done.\n");
+
+  const int socket_fd = openOscSocket();
+  char buffer[1024]; // buffer into which network data is received
+
+  struct timespec start_tick, tock, diff_tick;
+  struct sockaddr_in sin;
+  int len = 0;
+  int sa_len = sizeof(struct sockaddr_in);
+  tosc_tinyosc osc;
 
   // initialise and configure Heavy
+  printf("Instantiating and configuring Heavy... ");
   Hv_firehelix *hv_context = hv_firehelix_new(HEAVY_SAMPLE_RATE);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
+  hv_setUserData(hv_context, &start_tick);
+  printf("done.\n");
 
-  const int64_t blocksize_ns =
-      (int64_t) (1000000000.0 * HEAVY_BLOCKSIZE / HEAVY_SAMPLE_RATE);
-
-  struct timeval tick, tock;
-
+  printf("Starting runloop.\n");
+  clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
+    while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
+      if (!tosc_init(&osc, buffer, len)) { // parse the osc packet, continue on success
+        if (!strncmp(osc.address, "/slider", 7)) {
+          hv_vscheduleMessageForReceiver(
+              hv_context, "#slider", 0.0, "f", tosc_getNextFloat(&osc));
+        } else if (!strncmp(osc.address, "/trail-length", 13)) {
+          hv_vscheduleMessageForReceiver(
+              hv_context, "#trail-length", 0.0, "f", tosc_getNextFloat(&osc));
+        } else if (!strncmp(osc.address, "/auto-speed", 11)) {
+          hv_vscheduleMessageForReceiver(
+              hv_context, "#auto-speed", 0.0, "f", tosc_getNextFloat(&osc));
+        } else if (!strncmp(osc.address, "/auto-off", 9)) {
+          hv_vscheduleMessageForReceiver(
+              hv_context, "#auto-off", 0.0, "f", tosc_getNextFloat(&osc));
+        } else if (!strncmp(osc.address, "/mode-index", 11)) {
+          const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
+          if (!strncmp(osc.address, "/mode-index/1/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 1.0f);
+          } else if (!strncmp(osc.address, "/mode-index/2/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 2.0f);
+          } else if (!strncmp(osc.address, "/mode-index/3/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 3.0f);
+          } else if (!strncmp(osc.address, "/mode-index/4/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 4.0f);
+          } else if (!strncmp(osc.address, "/mode-index/5/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 5.0f);
+          } else if (!strncmp(osc.address, "/mode-index/6/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 6.0f);
+          } else if (!strncmp(osc.address, "/mode-index/7/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 7.0f);
+          } else if (!strncmp(osc.address, "/mode-index/8/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 8.0f);
+          } else if (!strncmp(osc.address, "/mode-index/9/1", 15) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 9.0f);
+          } else if (!strncmp(osc.address, "/mode-index/10/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 10.0f);
+          } else if (!strncmp(osc.address, "/mode-index/11/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 11.0f);
+          } else if (!strncmp(osc.address, "/mode-index/12/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 12.0f);
+          } else if (!strncmp(osc.address, "/mode-index/13/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 13.0f);
+          } else if (!strncmp(osc.address, "/mode-index/14/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 14.0f);
+          } else if (!strncmp(osc.address, "/mode-index/15/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 15.0f);
+          } else if (!strncmp(osc.address, "/mode-index/15/1", 16) && is_on) {
+            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
+          }
+        } else {
+          printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
+          for (int i = 0; osc.format[i] != '\0'; i++) {
+            switch (osc.format[i]) {
+              case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
+              case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
+              default: continue;
+            }
+          }
+          printf("\n");
+        }
+      }
+    }
+
     // process Heavy
-    gettimeofday(&tick, NULL);
-    hv_firehelix_process_inline(hv_context, NULL, NULL, HEAVY_BLOCKSIZE);
-    gettimeofday(&tock, NULL);
+    hv_firehelix_process(hv_context, NULL, NULL, HEAVY_BLOCKSIZE); // no IO buffers
+    clock_gettime(CLOCK_REALTIME, &tock);
 
-    const int64_t elapsed_ns = ((tock.tv_sec - tick.tv_sec) * SEC_TO_NS_L) + // sec to ns
-        ((tock.tv_usec - tick.tv_usec) * US_TO_NS_L); // us to ns
-
-    const int64_t sleep_us = blocksize_ns - elapsed_ns;
-    if (sleep_us > 0) {
+    timespec_subtract(&diff_tick, &tock, &start_tick);
+    const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
+    const int64_t block_ns = (int64_t) (hv_getCurrentTime(hv_context) * 1000000000.0);
+    const int64_t sleep_ns = block_ns - elapsed_ns;
+    if (sleep_ns > 0) {
       struct timespec sleep_nano;
-      // sleep_nano.tv_sec = (time_t) (sleep_us/SEC_TO_NS_L);
-      // sleep_nano.tv_nsec = (long) (sleep_us - (sleep_nano.tv_sec*SEC_TO_NS_L));
+      // there is never a need to sleep longer than 1 second (famous last words...)
       sleep_nano.tv_sec = 0;
-      // nothing will ever take longer than 1 second (famous last words...)
-      sleep_nano.tv_nsec = (long) sleep_us;
+      sleep_nano.tv_nsec = (long) sleep_ns;
       nanosleep(&sleep_nano, NULL);
     }
-    else printf("Buffer underrun by %ius\n", -1*sleep_us);
+    else printf("Buffer underrun by %llins\n", -1*sleep_ns);
   }
+  printf("Firehelix shutting down... ");
 
-  // TODO(mhroth): set all pins to 0 and unmap everything
-  GPIO_CLR(PIN_07);
+  // close the UDP socket
+  close(socket_fd);
+
+  // clear all pins
+  for (int i = 0; i < NUM_GPIO_PINS; i++) GPIO_CLR(i);
+
+  // unmap memory
   unmap_peripheral(&gpio);
 
   // free heavy
   hv_firehelix_free(hv_context);
 
-  return 0;
+  printf("done.\n");
 }

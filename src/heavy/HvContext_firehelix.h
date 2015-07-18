@@ -31,21 +31,23 @@
 #define Context(_x) ((Hv_firehelix *) (_x))
 
 // object includes
+#include "ControlDelay.h"
 #include "ControlSystem.h"
 #include "ControlBinop.h"
-#include "ControlDelay.h"
-#include "ControlCast.h"
 #include "ControlVar.h"
+#include "ControlCast.h"
 
 typedef struct Hv_firehelix {
   HvBase base;
 
   // objects
-  ControlBinop cBinop_Pmp4F;
-  ControlVar cVar_G98MT;
-  ControlBinop cBinop_e1pv9;
-  ControlDelay cDelay_R8XhZ;
-  ControlBinop cBinop_puAvm;
+  ControlBinop cBinop_8iw2m;
+  ControlDelay cDelay_19UHv;
+  ControlVar cVar_Z9k4p;
+  ControlBinop cBinop_8MOUi;
+  ControlBinop cBinop_bY3Wq;
+  ControlBinop cBinop_YiQHV;
+  ControlVar cVar_rOvMv;
 } Hv_firehelix;
 
 #endif // _HEAVYCONTEXT_FIREHELIX_H_
