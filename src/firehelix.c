@@ -107,9 +107,9 @@ static void sigintHandler(int x) {
 
 void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start)
 {
-  if ((end->tv_nsec - start->tv_nsec) < 0) {
+  if (end->tv_nsec < start->tv_nsec) {
     result->tv_sec = end->tv_sec - start->tv_sec - 1;
-    result->tv_nsec = 1000000000 + end->tv_nsec - start->tv_nsec;
+    result->tv_nsec = SEC_TO_NS + end->tv_nsec - start->tv_nsec;
   } else {
     result->tv_sec = end->tv_sec - start->tv_sec;
     result->tv_nsec = end->tv_nsec - start->tv_nsec;
@@ -139,7 +139,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     }
   }
   char *msg_string = hv_msg_toString(m);
-  printf("HVY [%0.3fms] (%s): %s\n", timestamp, receiverName, msg_string);
+  printf("[@h %0.3fms] %s: %s\n", timestamp, receiverName, msg_string);
   free(msg_string);
 }
 
