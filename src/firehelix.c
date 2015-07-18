@@ -139,7 +139,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     }
   }
   char *msg_string = hv_msg_toString(m);
-  printf("[@h %0.3fms] %s: %s\n", timestamp, receiverName, msg_string);
+  printf("Received unknown Pd message: [@h %0.3fms] %s: %s\n", timestamp, receiverName, msg_string);
   free(msg_string);
 }
 
@@ -227,6 +227,8 @@ void main(int argc, char *argv[]) {
   printf("Starting runloop.\n");
   clock_gettime(CLOCK_REALTIME, &start_tick);
   while (_keepRunning) {
+
+    // receive and parse all OSC message received since the last block
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       if (!tosc_init(&osc, buffer, len)) { // parse the osc packet, continue on success
         if (!strncmp(osc.address, "/slider", 7)) {
@@ -277,7 +279,7 @@ void main(int argc, char *argv[]) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
           }
         } else {
-          printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
+          printf("Received unknown OSC message: [%i bytes] %s %s ", len, osc.address, osc.format);
           for (int i = 0; osc.format[i] != '\0'; i++) {
             switch (osc.format[i]) {
               case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
