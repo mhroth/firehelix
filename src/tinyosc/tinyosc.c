@@ -58,7 +58,8 @@ const char *tosc_getNextString(tosc_tinyosc *o) {
   // TODO(mhroth): test this
   int i = o->marker - o->buffer; // offset
   const char *s = o->marker;
-  while (*s != '\0') ++i;
+  while (i < o->len && s[i] != '\0') ++i;
+  if (i == o->len) return NULL;
   ++i; while (i & 0x3) ++i; // advance to next multiple of 4
   o->marker = o->buffer + i;
   return s;

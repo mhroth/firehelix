@@ -14,6 +14,9 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifndef _TINY_OSC_
+#define _TINY_OSC_
+
 #include <stdint.h>
 
 typedef struct tosc_tinyosc {
@@ -31,3 +34,5 @@ int32_t tosc_getNextInt32(tosc_tinyosc *o);
 float tosc_getNextFloat(tosc_tinyosc *o);
 
 const char *tosc_getNextString(tosc_tinyosc *o);
+
+#endif // _TINY_OSC_
