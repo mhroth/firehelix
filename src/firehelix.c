@@ -49,11 +49,13 @@ struct bcm2835_peripheral {
 
 struct bcm2835_peripheral gpio = {GPIO_BASE};
 
+
+
 #define INP_GPIO(g) *(gpio.addr + ((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
-#define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << (g)) // TODO(mhroth): g > 31 will cause an error
-#define GPIO_CLR(g) *(gpio.addr + 10 + (g/32)) = (1 << (g)) // TODO(mhroth): g > 31 will cause an error
-#define GPIO_READ(g) *(gpio.addr + 13) &= (1 << (g)) // NOTE(mhroth): unused for now
+#define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << ((g)%32))
+#define GPIO_CLR(g) *(gpio.addr + 10 + (g/32)) = (1 << ((g)%32))
+#define GPIO_READ(g) *(gpio.addr + 13 + (g/32)) &= (1 << ((g)%32)) // NOTE(mhroth): unused for now
 
 #define MMAP_PAGE_SIZE 4096
 #define MMAP_BLOCK_SIZE 4096
