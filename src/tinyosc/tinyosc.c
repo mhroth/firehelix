@@ -15,6 +15,7 @@
  */
 
 #include <netinet/in.h>
+#include <stddef.h>
 #include "tinyosc.h"
 
 // http://opensoundcontrol.org/spec-1_0
