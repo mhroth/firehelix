@@ -49,8 +49,6 @@ struct bcm2835_peripheral {
 
 struct bcm2835_peripheral gpio = {GPIO_BASE};
 
-
-
 #define INP_GPIO(g) *(gpio.addr + ((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
 #define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << ((g)%32))
@@ -229,17 +227,50 @@ void main(int argc, char *argv[]) {
   while (_keepRunning) {
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       if (!tosc_init(&osc, buffer, len)) { // parse the osc packet, continue on success
-        printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
-        for (int i = 0; osc.format[i] != '\0'; i++) {
-          switch (osc.format[i]) {
-            case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
-            case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
-            default: continue;
+        const bool is_on = tosc_getNextFloat(&osc) == 1.0f;
+        if (!strncmp(osc.address, "/mode-index/1/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 1.0f);
+        } else if (!strncmp(osc.address, "/mode-index/2/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 2.0f);
+        } else if (!strncmp(osc.address, "/mode-index/3/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 3.0f);
+        } else if (!strncmp(osc.address, "/mode-index/4/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 4.0f);
+        } else if (!strncmp(osc.address, "/mode-index/5/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 5.0f);
+        } else if (!strncmp(osc.address, "/mode-index/6/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 6.0f);
+        } else if (!strncmp(osc.address, "/mode-index/7/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 7.0f);
+        } else if (!strncmp(osc.address, "/mode-index/8/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 8.0f);
+        } else if (!strncmp(osc.address, "/mode-index/9/1", 15) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 9.0f);
+        } else if (!strncmp(osc.address, "/mode-index/10/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 10.0f);
+        } else if (!strncmp(osc.address, "/mode-index/11/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 11.0f);
+        } else if (!strncmp(osc.address, "/mode-index/12/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 12.0f);
+        } else if (!strncmp(osc.address, "/mode-index/13/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 13.0f);
+        } else if (!strncmp(osc.address, "/mode-index/14/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 14.0f);
+        } else if (!strncmp(osc.address, "/mode-index/15/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 15.0f);
+        } else if (!strncmp(osc.address, "/mode-index/15/1", 16) && is_on) {
+          hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
+        } else {
+          printf("Received: [%i bytes] %s %s ", len, osc.address, osc.format);
+          for (int i = 0; osc.format[i] != '\0'; i++) {
+            switch (osc.format[i]) {
+              case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
+              case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
+              default: continue;
+            }
           }
+          printf("\n");
         }
-        printf("\n");
-
-        // hv_vscheduleMessage(hv_context, "receiverName", "f", f);
       }
     }
 
