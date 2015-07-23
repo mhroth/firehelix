@@ -166,11 +166,14 @@ static void printWlanIpPort() {
   char host[INET_ADDRSTRLEN];
   getifaddrs(&ifaddr);
   for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-    if (!strncmp(ifa->ifa_name, "wlan0", 5)) { // only display IP for interface wlan0
+    if (!strcmp(ifa->ifa_name, "wlan0")) { // only display IP for interface wlan0
       if (ifa->ifa_addr->sa_family == AF_INET) {
         struct sockaddr_in *sa = (struct sockaddr_in *) ifa->ifa_addr;
         inet_ntop(AF_INET, &(sa->sin_addr), host, INET_ADDRSTRLEN);
         printf("WiFi: %s:2015\n", host);
+        printf("%.2X%.2X%.2X%.2X%.2X%.2X\n",
+            ifa->ifa_data[0], ifa->ifa_data[1], ifa->ifa_data[2],
+            ifa->ifa_data[3], ifa->ifa_data[4], ifa->ifa_data[5]);
         break;
       }
     }
