@@ -1,0 +1,12 @@
+#N canvas 0 22 387 365 10;
+#X obj 134 107 r mode-index-in;
+#X obj 134 129 OSCroute /\$1;
+#X obj 134 151 OSCroute /1;
+#X obj 134 173 sel 1;
+#X obj 134 217 s #mode-index;
+#X obj 134 195 \$1;
+#X connect 0 0 1 0;
+#X connect 1 0 2 0;
+#X connect 2 0 3 0;
+#X connect 3 0 5 0;
+#X connect 5 0 4 0;
