@@ -2,6 +2,7 @@
 #N canvas 5 248 613 740 vis 1;
 #X obj 584 685 bng 15 250 50 0 empty empty empty 17 7 0 10 -262144
 -1 -1;
+#X obj 201 177 poofer 27;
 #X obj 467 421 poofer 3;
 #X obj 467 229 poofer 6;
 #X obj 296 550 poofer 11;
@@ -29,7 +30,6 @@
 #X obj 201 369 poofer 24;
 #X obj 201 305 poofer 25;
 #X obj 201 241 poofer 26;
-#X obj 201 177 poofer 27;
 #X obj 201 113 poofer 28;
 #X obj 201 49 poofer 29;
 #X obj 30 626 poofer 30;
@@ -473,13 +473,8 @@ opposing-2 all cw-inverse ccw-inverse;
 #X obj 501 55 bng 15 250 50 0 empty empty empty 17 7 0 10 -262144 -1
 -1;
 #X obj 687 151 s all-poofers;
-#X obj 808 165 dac~;
-#X obj 808 143 *~ 0.1;
 #X obj 451 81 bng 15 250 50 0 empty empty empty 17 7 0 10 -262144 -1
 -1;
-#X obj 808 117 catch~ L;
-#X obj 868 143 *~ 0.1;
-#X obj 868 117 catch~ R;
 #X connect 1 0 8 0;
 #X connect 2 0 8 0;
 #X connect 3 0 77 0;
@@ -597,8 +592,4 @@ opposing-2 all cw-inverse ccw-inverse;
 #X connect 97 1 98 0;
 #X connect 98 0 100 0;
 #X connect 99 0 97 0;
-#X connect 102 0 101 0;
-#X connect 103 0 87 0;
-#X connect 104 0 102 0;
-#X connect 105 0 101 1;
-#X connect 106 0 105 0;
+#X connect 101 0 87 0;
