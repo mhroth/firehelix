@@ -130,18 +130,22 @@ static void hv_printHook(double timestamp, const char *name, const char *s,
 */
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
-  if (!strncmp(receiverName, "#toGPIO", 7)) {
+  if (!strcmp(receiverName, "#toGPIO")) {
     const int pin = (int) hv_msg_getFloat(m, 0); // pin is zero indexed
     if (pin >= 0 && pin < NUM_GPIO_PINS) { // error checking
       if (hv_msg_getFloat(m, 1) == 0.0f) GPIO_CLR(pin);
       else GPIO_SET(pin);
       printf("[@h %0.3f] GPIO(%i) %s\n", timestamp, pin, hv_msg_getFloat(m, 1) == 0.0f ? "off" : "on");
       return;
+    } else {
+      printf("Received message to #toGPIO with OOB pin index: %i\n", pin);
     }
+  } else {
+    // NOTE(mhroth): this can get annoying, uncomment if necessary
+    // char *msg_string = hv_msg_toString(m);
+    // printf("Received unknown Pd message: [@h %0.3fms] %s: %s\n", timestamp, receiverName, msg_string);
+    // free(msg_string);
   }
-  char *msg_string = hv_msg_toString(m);
-  printf("Received unknown Pd message: [@h %0.3fms] %s: %s\n", timestamp, receiverName, msg_string);
-  free(msg_string);
 }
 
 static int openOscSocket() {
