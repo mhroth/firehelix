@@ -135,8 +135,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     if (pin >= 0 && pin < NUM_GPIO_PINS) { // error checking
       if (hv_msg_getFloat(m, 1) == 0.0f) GPIO_CLR(pin);
       else GPIO_SET(pin);
-      printf("[@h %0.3f] GPIO(%i) %s\n", timestamp, pin, hv_msg_getFloat(m, 1) == 0.0f ? "off" : "on");
-      return;
+      // printf("[@h %0.3f] GPIO(%i) %s\n", timestamp, pin, hv_msg_getFloat(m, 1) == 0.0f ? "off" : "on");
     } else {
       printf("Received message to #toGPIO with OOB pin index: %i\n", pin);
     }
