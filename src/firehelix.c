@@ -231,51 +231,51 @@ void main(int argc, char *argv[]) {
     // receive and parse all OSC message received since the last block
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       if (!tosc_init(&osc, buffer, len)) { // parse the osc packet, continue on success
-        if (!strncmp(osc.address, "/slider", 7)) {
+        if (!strcmp(osc.address, "/slider")) {
           hv_vscheduleMessageForReceiver(
               hv_context, "#slider", 0.0, "f", tosc_getNextFloat(&osc));
-        } else if (!strncmp(osc.address, "/trail-length", 13)) {
+        } else if (!strcmp(osc.address, "/trail-length")) {
           hv_vscheduleMessageForReceiver(
               hv_context, "#trail-length", 0.0, "f", tosc_getNextFloat(&osc));
-        } else if (!strncmp(osc.address, "/auto-speed", 11)) {
+        } else if (!strcmp(osc.address, "/auto-speed")) {
           hv_vscheduleMessageForReceiver(
               hv_context, "#auto-speed", 0.0, "f", tosc_getNextFloat(&osc));
-        } else if (!strncmp(osc.address, "/auto-off", 9)) {
+        } else if (!strcmp(osc.address, "/auto-off")) {
           hv_vscheduleMessageForReceiver(
               hv_context, "#auto-off", 0.0, "f", tosc_getNextFloat(&osc));
         } else if (!strncmp(osc.address, "/mode-index", 11)) {
           const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
-          if (!strncmp(osc.address, "/mode-index/1/1", 15) && is_on) {
+          if (!strcmp(osc.address, "/mode-index/1/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 1.0f);
-          } else if (!strncmp(osc.address, "/mode-index/2/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/2/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 2.0f);
-          } else if (!strncmp(osc.address, "/mode-index/3/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/3/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 3.0f);
-          } else if (!strncmp(osc.address, "/mode-index/4/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/4/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 4.0f);
-          } else if (!strncmp(osc.address, "/mode-index/5/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/5/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 5.0f);
-          } else if (!strncmp(osc.address, "/mode-index/6/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/6/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 6.0f);
-          } else if (!strncmp(osc.address, "/mode-index/7/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/7/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 7.0f);
-          } else if (!strncmp(osc.address, "/mode-index/8/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/8/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 8.0f);
-          } else if (!strncmp(osc.address, "/mode-index/9/1", 15) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/9/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 9.0f);
-          } else if (!strncmp(osc.address, "/mode-index/10/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/10/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 10.0f);
-          } else if (!strncmp(osc.address, "/mode-index/11/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/11/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 11.0f);
-          } else if (!strncmp(osc.address, "/mode-index/12/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/12/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 12.0f);
-          } else if (!strncmp(osc.address, "/mode-index/13/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/13/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 13.0f);
-          } else if (!strncmp(osc.address, "/mode-index/14/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/14/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 14.0f);
-          } else if (!strncmp(osc.address, "/mode-index/15/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/15/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 15.0f);
-          } else if (!strncmp(osc.address, "/mode-index/15/1", 16) && is_on) {
+          } else if (!strcmp(osc.address, "/mode-index/15/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
           }
         } else {
