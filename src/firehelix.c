@@ -307,7 +307,13 @@ void main(int argc, char *argv[]) {
           } else if (!strcmp(osc.address, "/mode-index/16/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
           }
-        } else {
+        } else if (!strcmp(osc.address, "/all-off")) {
+          if (tosc_getNextFloat(&osc) == 1.0f) {
+            hv_vscheduleMessageForReceiver(hv_context, "#all-off", 0.0, "b");
+          }
+        }
+
+else {
           printf("Received unknown OSC message: [%i bytes] %s %s ", len, osc.address, osc.format);
           for (int i = 0; osc.format[i] != '\0'; i++) {
             switch (osc.format[i]) {
