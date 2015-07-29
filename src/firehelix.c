@@ -179,7 +179,6 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     char buffer[64];
     int len = tosc_write(buffer, sizeof(buffer),
         "/force", "f", hv_msg_getFloat(m, 0));
-    tosc_printOscBuffer(buffer, len);
     send(fd, buffer, len, 0);
   } else {
     // NOTE(mhroth): this can get annoying, uncomment if necessary
