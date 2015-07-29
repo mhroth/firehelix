@@ -1,4 +1,4 @@
-#N canvas 735 109 1028 619 10;
+#N canvas 515 151 1034 664 10;
 #X declare -path ../controller/test-rig/oscx;
 #X obj 21 82 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0 1
 ;
@@ -87,11 +87,11 @@
 #X obj 470 523 + 750;
 #X obj 520 501 * 3000;
 #X obj 520 523 + 1000;
-#X floatatom 480 545 5 0 0 0 - - -, f 5;
-#X floatatom 530 545 5 0 0 0 - - -, f 5;
-#X floatatom 580 545 5 0 0 0 - - -, f 5;
-#X floatatom 519 426 5 0 0 0 - - -, f 5;
-#X floatatom 571 417 5 0 0 0 - - -, f 5;
+#X floatatom 480 545 5 0 0 0 - - -;
+#X floatatom 530 545 5 0 0 0 - - -;
+#X floatatom 580 545 5 0 0 0 - - -;
+#X floatatom 519 426 5 0 0 0 - - -;
+#X floatatom 571 417 5 0 0 0 - - -;
 #X msg 542 364 1;
 #X obj 643 340 r reset;
 #X msg 643 362 0;
@@ -119,9 +119,9 @@
 1;
 #X obj 857 115 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
 1;
-#X obj 470 93 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
+#X obj 470 93 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 1
 1;
-#X floatatom 534 243 5 0 0 0 - - -, f 5;
+#X floatatom 534 243 5 0 0 0 - - -;
 #X obj 470 403 / 10;
 #X obj 497 335 moses 10;
 #X obj 203 7 r start;
@@ -202,8 +202,17 @@ connected;
 #X connect 30 0 3 0;
 #X restore 44 542 pd dmx;
 #X obj 469 23 declare -path ../controller/test-rig/oscx;
-#X obj 172 381 station 2 9 19 20;
 #X obj 172 140 station 0 1 6 12;
+#N canvas -3 73 450 300 timebase 0;
+#X obj 77 64 loadbang;
+#X msg 77 85 1;
+#X obj 77 106 metro 5;
+#X obj 77 127 s tick;
+#X connect 0 0 1 0;
+#X connect 1 0 2 0;
+#X connect 2 0 3 0;
+#X restore 28 169 pd timebase;
+#X obj 172 381 station 2 9 19 20;
 #X obj 294 260 station 1 5 13 16;
 #X obj 51 261 station 3 13 26 21;
 #X connect 0 0 1 0;

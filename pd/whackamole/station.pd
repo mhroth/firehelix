@@ -1,4 +1,4 @@
-#N canvas 150 88 1175 616 10;
+#N canvas 135 78 1175 616 10;
 #X obj 30 57 metro 5000;
 #X obj 57 212 random 1000;
 #X obj 57 234 + 4000;
@@ -148,6 +148,8 @@
 #X obj 490 441 r tick;
 #X obj 326 486 r station-\$1-press;
 #X obj 326 510 print station-\$1-press;
+#X obj 666 429 tgl 15 0 empty empty empty 17 7 0 10 -262144 -1 -1 0
+1;
 #X connect 0 0 23 0;
 #X connect 1 0 2 0;
 #X connect 2 0 0 1;
@@ -243,4 +245,5 @@
 #X connect 76 1 21 0;
 #X connect 77 0 64 0;
 #X connect 78 0 79 0;
+#X connect 80 0 63 0;
 #X coords 0 -1 1 1 120 140 1 944 53;
