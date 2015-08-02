@@ -159,11 +159,11 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     int len = tosc_write(buffer, sizeof(buffer),
         "/time-remaining-label", "s", str);
     send(fd, buffer, len, 0);
-  } else if (!strcmp(receiverName, "#status")) {
+  } else if (!strcmp(receiverName, "#status-label")) {
     // send status label to TouchOSC
     char buffer[64];
     int len = tosc_write(buffer, sizeof(buffer),
-        "/label", "s", hv_msg_getSymbol(m,0));
+        "/status-label", "s", hv_msg_getSymbol(m, 0));
     send(fd, buffer, len, 0);
   } else {
     // NOTE(mhroth): this can get annoying, uncomment if necessary
@@ -173,7 +173,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
   }
 }
 
-static int openOscSocket() {
+static int openReceiveSocket() {
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   fcntl(fd, F_SETFL, O_NONBLOCK); // set the socket to non-blocking
   struct sockaddr_in sin;
@@ -253,9 +253,14 @@ void main(int argc, char *argv[]) {
   }
   printf("done.\n");
 
-  const int socket_fd = openOscSocket(); // for receiving from TouchOSC and whack-a-mole rpi
-  const int socket_fd_send = openSendSocket(); // for sending to TouchOSC
-  char buffer[1024]; // buffer into which network data is received
+  // for receiving from TouchOSC and whack-a-mole rpi commands
+  const int socket_fd = openReceiveSocket();
+
+  // for sending to TouchOSC
+  const int socket_fd_send = openSendSocket();
+
+  // buffer into which network data is received
+  char buffer[1024];
 
   struct timespec start_tick, tock, diff_tick;
   struct sockaddr_in sin;
