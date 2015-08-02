@@ -67,7 +67,7 @@ HV_EXPORT typedef struct HvMessage HvMessage;
 /** Returns the byte size of a HvMessage with a number of elements on the heap. */
 HV_EXPORT hv_size_t hv_msg_getByteSize(int numElements);
 
-/** Create a HvMessage on the stack with a number of elements. This message does MUST NOT be freed. */
+/** Create a HvMessage on the stack with a number of elements. This message MUST NOT be freed. */
 #define hv_msg_onStack(_n) ((HvMessage *) hv_alloca(hv_msg_getByteSize(_n)))
 
 /** Initialise a message with the number of elements and a timestamp (in milliseconds). */
@@ -152,9 +152,16 @@ typedef struct Hv_firehelix Hv_firehelix;
 /**
  * Creates a new patch instance.
  * Sample rate should be positive and in Hertz.
- * Input and output channels should be non-negative.
  */
 HV_EXPORT Hv_firehelix *hv_firehelix_new(double sampleRate);
+
+/**
+ * Creates a new patch instance.
+ * Sample rate should be positive and in Hertz.
+ * Pool size is in kilobytes, and determines the maximum amount of memory
+ *   allocated to messages at any time. By default this is 10.
+ */
+HV_EXPORT Hv_firehelix *hv_firehelix_new_with_pool(double sampleRate, int poolKb);
 
 /** Frees a patch instance. */
 HV_EXPORT void hv_firehelix_free(Hv_firehelix *c);

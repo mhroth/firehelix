@@ -42,10 +42,10 @@ void cSlice_onMessage(HvBase *_c, ControlSlice *o, int letIn, const HvMessage *c
         hv_memcpy(&n->elem, &m->elem+o->i, x*sizeof(Element));
         sendMessage(_c, 0, n);
       } else {
-        // otherwise send a bang
+        // if nothing can be sliced, send a bang out of the right outlet
         HvMessage *n = HV_MESSAGE_ON_STACK(1);
         msg_initWithBang(n, msg_getTimestamp(m));
-        sendMessage(_c, 0, n);
+        sendMessage(_c, 1, n);
       }
       break;
     }

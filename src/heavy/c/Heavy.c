@@ -173,7 +173,8 @@ void hv_vscheduleMessageForReceiver(HvBase *c, const char *receiverName, const d
 }
 
 void hv_scheduleMessageForReceiver(HvBase *c, const char *receiverName, double delayMs, HvMessage *m) {
-  msg_setTimestamp(m, c->blockStartTimestamp + (hv_uint32_t) (hv_max_d(0.0, delayMs)*ctx_getSampleRate(c)/1000.0));
+  hv_assert(delayMs >= 0.0);
+  msg_setTimestamp(m, c->blockStartTimestamp + (hv_uint32_t) (delayMs*ctx_getSampleRate(c)/1000.0));
   ctx_scheduleMessageForReceiver(c, receiverName, m);
 }
 
