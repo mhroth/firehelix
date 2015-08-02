@@ -105,8 +105,7 @@ static void sigintHandler(int x) {
   _keepRunning = false;
 }
 
-void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start)
-{
+void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start) {
   if (end->tv_nsec < start->tv_nsec) {
     result->tv_sec = end->tv_sec - start->tv_sec - 1;
     result->tv_nsec = SEC_TO_NS + end->tv_nsec - start->tv_nsec;
@@ -133,9 +132,22 @@ static void hv_sendHook(double timestamp, const char *receiverName,
   if (!strcmp(receiverName, "#toGPIO")) {
     int pin = (int) hv_msg_getFloat(m, 0); // pin is zero indexed
     if (pin >= 0 && pin < NUM_GPIO_PINS) { // error checking
+      const float f = hv_msg_getFloat(m, 1);
       if (pin == 16) pin = 40; // TODO(mhroth): for some reason pin 16 often gets reset
-      if (hv_msg_getFloat(m, 1) == 0.0f) GPIO_CLR(pin);
+      if (f == 0.0f) GPIO_CLR(pin);
       else GPIO_SET(pin);
+
+      {
+        // send the pin state back to TouchOSC
+        int fd = *((int *) userData);
+        char addr[16];
+        if (pin == 40) pin = 16; // NOTE(mhroth): undo the above transformation
+        snprintf(addr, sizeof(addr), "/1/led%i", pin);
+        char buffer[64];
+        int len = tosc_write(buffer, sizeof(buffer), addr, "f", f);
+        send(fd, buffer, len, 0);
+      }
+
       // printf("[@h %0.3f] GPIO(%i) %s\n", timestamp, pin, hv_msg_getFloat(m, 1) == 0.0f ? "off" : "on");
     } else {
       printf("Received message to #toGPIO with OOB pin index: %i\n", pin);
@@ -159,6 +171,19 @@ static int openOscSocket() {
   return fd;
 }
 
+static int openSendSocket() {
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  struct sockaddr_in sin;
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons(2013);
+  inet_aton("192.168.0.13", &sin.sin_addr);
+  int err = connect(fd, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
+  if (err != 0) {
+    printf("Failed to open send socket: %i\n", err);
+    return -1;
+  } else return fd;
+}
+
 // http://man7.org/linux/man-pages/man3/getifaddrs.3.html
 // http://beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html
 // http://beej.us/guide/bgnet/output/html/multipage/sockaddr_inman.html
@@ -171,10 +196,10 @@ static void printWlanIpPort() {
       if (ifa->ifa_addr->sa_family == AF_INET) {
         struct sockaddr_in *sa = (struct sockaddr_in *) ifa->ifa_addr;
         inet_ntop(AF_INET, &(sa->sin_addr), host, INET_ADDRSTRLEN);
-        printf("WiFi: %s:2015\n", host);
-        //printf("%.2X%.2X%.2X%.2X%.2X%.2X\n",
-        //    ifa->ifa_data[0], ifa->ifa_data[1], ifa->ifa_data[2],
-        //    ifa->ifa_data[3], ifa->ifa_data[4], ifa->ifa_data[5]);
+        printf("WiFi: %s:2015 (74:DA:38:33:AF:EC)\n", host);
+        // printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n",
+        //     ((char *) ifa->ifa_data)[0], ((char *) ifa->ifa_data)[1], ((char *) ifa->ifa_data)[2],
+        //     ((char *) ifa->ifa_data)[3], ((char *) ifa->ifa_data)[4], ((char *) ifa->ifa_data)[5]);
         break;
       }
     }
@@ -215,7 +240,8 @@ void main(int argc, char *argv[]) {
   }
   printf("done.\n");
 
-  const int socket_fd = openOscSocket();
+  const int socket_fd = openOscSocket(); // for receiving from TouchOSC and whack-a-mole rpi
+  const int socket_fd_send = openSendSocket(); // for sending to TouchOSC
   char buffer[1024]; // buffer into which network data is received
 
   struct timespec start_tick, tock, diff_tick;
@@ -229,7 +255,7 @@ void main(int argc, char *argv[]) {
   Hv_firehelix *hv_context = hv_firehelix_new_with_pool(HEAVY_SAMPLE_RATE, 100);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
-  hv_setUserData(hv_context, &start_tick);
+  hv_setUserData(hv_context, (void *) &socket_fd_send);
   printf("done.\n");
 
   printf("Starting runloop.\n");
@@ -238,7 +264,7 @@ void main(int argc, char *argv[]) {
 
     // receive and parse all OSC message received since the last block
     while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
-      if (!tosc_init(&osc, buffer, len)) { // parse the osc packet, continue on success
+      if (!tosc_read(&osc, buffer, len)) { // parse the osc packet, continue on success
         if (!strcmp(osc.address, "/slider")) {
           hv_vscheduleMessageForReceiver(
               hv_context, "#slider", 0.0, "f", tosc_getNextFloat(&osc));
@@ -251,6 +277,8 @@ void main(int argc, char *argv[]) {
         } else if (!strcmp(osc.address, "/auto-off")) {
           hv_vscheduleMessageForReceiver(
               hv_context, "#auto-off", 0.0, "f", tosc_getNextFloat(&osc));
+        } else if (!strcmp(osc.address, "/start-sequence")) {
+          hv_vscheduleMessageForReceiver(hv_context, "#start-sequence", 0.0, "b");
         } else if (!strncmp(osc.address, "/branch-index", 13)) {
           const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
           if (!strcmp(osc.address, "/branch-index/1/1") && is_on) {
@@ -307,6 +335,10 @@ void main(int argc, char *argv[]) {
           } else if (!strcmp(osc.address, "/mode-index/16/1") && is_on) {
             hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
           }
+        } else if (!strcmp(osc.address, "/all-off")) {
+          if (tosc_getNextFloat(&osc) == 1.0f) {
+            hv_vscheduleMessageForReceiver(hv_context, "#all-off", 0.0, "b");
+          }
         } else {
           printf("Received unknown OSC message: [%i bytes] %s %s ", len, osc.address, osc.format);
           for (int i = 0; osc.format[i] != '\0'; i++) {
@@ -340,8 +372,9 @@ void main(int argc, char *argv[]) {
   }
   printf("Firehelix shutting down... ");
 
-  // close the UDP socket
-  close(socket_fd);
+  // close the UDP sockets
+  close(socket_fd); // the listening socket
+  close(socket_fd_send); // the sending socket
 
   // clear all pins
   for (int i = 0; i < NUM_GPIO_PINS; i++) GPIO_CLR(i);
