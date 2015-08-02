@@ -147,11 +147,24 @@ static void hv_sendHook(double timestamp, const char *receiverName,
         int len = tosc_write(buffer, sizeof(buffer), addr, "f", f);
         send(fd, buffer, len, 0);
       }
-
-      // printf("[@h %0.3f] GPIO(%i) %s\n", timestamp, pin, hv_msg_getFloat(m, 1) == 0.0f ? "off" : "on");
     } else {
       printf("Received message to #toGPIO with OOB pin index: %i\n", pin);
     }
+  } else if (!strcmp(receiverName, "#time-remaining-label")) {
+    // send sequence time to TouchOSC
+    char str[32];
+    snprintf(str, sizeof(str), "%g:%g",
+      hv_msg_getFloat(m, 0), hv_msg_getFloat(m, 1));
+    char buffer[64];
+    int len = tosc_write(buffer, sizeof(buffer),
+        "/time-remaining-label", "s", str);
+    send(fd, buffer, len, 0);
+  } else if (!strcmp(receiverName, "#status")) {
+    // send status label to TouchOSC
+    char buffer[64];
+    int len = tosc_write(buffer, sizeof(buffer),
+        "/label", "s", hv_msg_getSymbol(m,0));
+    send(fd, buffer, len, 0);
   } else {
     // NOTE(mhroth): this can get annoying, uncomment if necessary
     // char *msg_string = hv_msg_toString(m);
