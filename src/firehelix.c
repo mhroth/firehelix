@@ -359,6 +359,14 @@ void main(int argc, char *argv[]) {
           if (tosc_getNextFloat(&osc) == 1.0f) {
             hv_vscheduleMessageForReceiver(hv_context, "#all-off", 0.0, "b");
           }
+        } else if (!strcmp(osc.address, "/start-button")) {
+          if (tosc_getNextFloat(&osc) == 1.0f) {
+            hv_vscheduleMessageForReceiver(hv_context, "#start-button", 0.0, "b");
+          }
+        } else if (!strcmp(osc.address, "/reset-button")) {
+          if (tosc_getNextFloat(&osc) == 1.0f) {
+            hv_vscheduleMessageForReceiver(hv_context, "#reset-button", 0.0, "b");
+          }
         } else {
           printf("Received unknown OSC message: [%i bytes] %s %s ", len, osc.address, osc.format);
           for (int i = 0; osc.format[i] != '\0'; i++) {
