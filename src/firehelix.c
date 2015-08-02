@@ -152,6 +152,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     }
   } else if (!strcmp(receiverName, "#time-remaining-label")) {
     // send sequence time to TouchOSC
+    int fd = *((int *) userData);
     char str[32];
     snprintf(str, sizeof(str), "%g:%g",
       hv_msg_getFloat(m, 0), hv_msg_getFloat(m, 1));
@@ -161,6 +162,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     send(fd, buffer, len, 0);
   } else if (!strcmp(receiverName, "#status-label")) {
     // send status label to TouchOSC
+    int fd = *((int *) userData);
     char buffer[64];
     int len = tosc_write(buffer, sizeof(buffer),
         "/status-label", "s", hv_msg_getSymbol(m, 0));
