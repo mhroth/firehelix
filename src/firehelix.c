@@ -186,7 +186,7 @@ static int openReceiveSocket() {
   return fd;
 }
 
-static int openSendSocket() {
+static int openTouchOscSocket() {
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   struct sockaddr_in sin;
   sin.sin_family = AF_INET;
@@ -194,7 +194,20 @@ static int openSendSocket() {
   inet_aton("192.168.0.13", &sin.sin_addr);
   int err = connect(fd, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
   if (err != 0) {
-    printf("Failed to open send socket: %i\n", err);
+    printf("Failed to open TouchOSC socket: %i\n", err);
+    return -1;
+  } else return fd;
+}
+
+static int openRpiSocket() {
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  struct sockaddr_in sin;
+  sin.sin_family = AF_INET;
+  sin.sin_port = htons(2015);
+  inet_aton("192.168.0.11", &sin.sin_addr);
+  int err = connect(fd, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
+  if (err != 0) {
+    printf("Failed to open RPI socket: %i\n", err);
     return -1;
   } else return fd;
 }
@@ -212,9 +225,6 @@ static void printWlanIpPort() {
         struct sockaddr_in *sa = (struct sockaddr_in *) ifa->ifa_addr;
         inet_ntop(AF_INET, &(sa->sin_addr), host, INET_ADDRSTRLEN);
         printf("WiFi: %s:2015 (74:DA:38:33:AF:EC)\n", host);
-        // printf("%.2X:%.2X:%.2X:%.2X:%.2X:%.2X\n",
-        //     ((char *) ifa->ifa_data)[0], ((char *) ifa->ifa_data)[1], ((char *) ifa->ifa_data)[2],
-        //     ((char *) ifa->ifa_data)[3], ((char *) ifa->ifa_data)[4], ((char *) ifa->ifa_data)[5]);
         break;
       }
     }
@@ -255,11 +265,14 @@ void main(int argc, char *argv[]) {
   }
   printf("done.\n");
 
-  // for receiving from TouchOSC and whack-a-mole rpi commands
-  const int socket_fd = openReceiveSocket();
+  // for receiving commands (from TouchOSC and whack-a-mole rpi)
+  const int fd_receive = openReceiveSocket();
 
   // for sending to TouchOSC
-  const int socket_fd_send = openSendSocket();
+  const int fd_touchosc = openTouchOscSocket();
+
+  // for sending to RPI
+  const int fd_rpi = openRpiSocket();
 
   // buffer into which network data is received
   char buffer[1024];
@@ -275,7 +288,7 @@ void main(int argc, char *argv[]) {
   Hv_firehelix *hv_context = hv_firehelix_new_with_pool(HEAVY_SAMPLE_RATE, 100);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
-  hv_setUserData(hv_context, (void *) &socket_fd_send);
+  hv_setUserData(hv_context, (void *) &fd_touchosc);
   printf("done.\n");
 
   printf("Starting runloop.\n");
@@ -283,7 +296,7 @@ void main(int argc, char *argv[]) {
   while (_keepRunning) {
 
     // receive and parse all OSC message received since the last block
-    while ((len = recvfrom(socket_fd, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
+    while ((len = recvfrom(fd_receive, buffer, sizeof(buffer), 0, (struct sockaddr *) &sin, (socklen_t *) &sa_len)) > 0) {
       if (!tosc_read(&osc, buffer, len)) { // parse the osc packet, continue on success
         if (!strcmp(osc.address, "/slider")) {
           hv_vscheduleMessageForReceiver(
@@ -360,13 +373,11 @@ void main(int argc, char *argv[]) {
             hv_vscheduleMessageForReceiver(hv_context, "#all-off", 0.0, "b");
           }
         } else if (!strcmp(osc.address, "/start-button")) {
-          if (tosc_getNextFloat(&osc) == 1.0f) {
-            hv_vscheduleMessageForReceiver(hv_context, "#start-button", 0.0, "b");
-          }
+          // forward the message to the rpi
+          send(fd_rpi, buffer, len, 0);
         } else if (!strcmp(osc.address, "/reset-button")) {
-          if (tosc_getNextFloat(&osc) == 1.0f) {
-            hv_vscheduleMessageForReceiver(hv_context, "#reset-button", 0.0, "b");
-          }
+          // forward the message to the rpi
+          send(fd_rpi, buffer, len, 0);
         } else {
           printf("Received unknown OSC message: [%i bytes] %s %s ", len, osc.address, osc.format);
           for (int i = 0; osc.format[i] != '\0'; i++) {
@@ -401,8 +412,9 @@ void main(int argc, char *argv[]) {
   printf("Firehelix shutting down... ");
 
   // close the UDP sockets
-  close(socket_fd); // the listening socket
-  close(socket_fd_send); // the sending socket
+  close(fd_receive); // the listening socket
+  close(fd_touchosc); // the TouchOSC socket
+  close(fd_rpi); // the RPI socket
 
   // clear all pins
   for (int i = 0; i < NUM_GPIO_PINS; i++) GPIO_CLR(i);
