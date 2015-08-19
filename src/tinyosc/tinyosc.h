@@ -25,13 +25,17 @@ extern "C" {
 
 typedef struct tosc_tinyosc {
   const char *address; // a pointer to the OSC address field
-  const char *format; // a pointer to the format field
-  const char *marker; // the current read head
-  const char *buffer; // the original message data
-  int len; // length of the buffer data
+  const char *format;  // a pointer to the format field
+  const char *marker;  // the current read head
+  const char *buffer;  // the original message data
+  int len;             // length of the buffer data
 } tosc_tinyosc;
 
 
+// parse a buffer containing an OSC message.
+// The contents of the buffer are NOT copied.
+// The tosc_tinyosc struct only points at relevant parts of the original buffer.
+// Returns 0 if there is no error. An error code (a negative number) otherwise.
 int tosc_read(tosc_tinyosc *o, const char *buffer, const int len);
 
 // returns the next 32-bit int. Does not check buffer bounds.
@@ -43,14 +47,22 @@ float tosc_getNextFloat(tosc_tinyosc *o);
 // returns the next string, or NULL if the buffer length is exceeded.
 const char *tosc_getNextString(tosc_tinyosc *o);
 
+// points the given buffer pointer to the next blob.
+// The len pointer is set to the length of the blob.
+// Returns NULL and 0 is the OSC buffer bounds are exceeded.
+void tosc_getNextBlob(tosc_tinyosc *o, const char **buffer, int *len);
+
 // writes an OSC packet to a buffer. Returns the total number of bytes written.
 // The entire buffer is cleared before writing.
 int tosc_write(char *buffer, const int len, const char *address,
     const char *fmt, ...);
+
+// a convenience function to (non-destructively) print a buffer containing
+// an OSC message to stdout.
+void tosc_printOscBuffer(const char *buffer, const int len);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif // _TINY_OSC_
-

@@ -312,6 +312,13 @@ void main(int argc, char *argv[]) {
               hv_context, "#auto-off", 0.0, "f", tosc_getNextFloat(&osc));
         } else if (!strcmp(osc.address, "/start-sequence")) {
           hv_vscheduleMessageForReceiver(hv_context, "#start-sequence", 0.0, "b");
+        } else if (!strncmp(osc.address, "/poofer-", 8)) {
+          // convert e.g. "/poofer-0" to "#poofer-0"
+          char str[16];
+          strncpy(str, osc.address, sizeof(str));
+          str[0] = '#';
+          hv_vscheduleMessageForReceiver(
+              hv_context, str, 0.0, "f", tosc_getNextFloat(&osc));
         } else if (!strncmp(osc.address, "/branch-index", 13)) {
           const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
           if (!strcmp(osc.address, "/branch-index/1/1") && is_on) {
@@ -373,21 +380,12 @@ void main(int argc, char *argv[]) {
             hv_vscheduleMessageForReceiver(hv_context, "#all-off", 0.0, "b");
           }
         } else if (!strcmp(osc.address, "/start-button")) {
-          // forward the message to the rpi
-          send(fd_rpi, buffer, len, 0);
+          send(fd_rpi, buffer, len, 0); // forward the message to the rpi
         } else if (!strcmp(osc.address, "/reset-button")) {
-          // forward the message to the rpi
-          send(fd_rpi, buffer, len, 0);
+          send(fd_rpi, buffer, len, 0); // forward the message to the rpi
         } else {
-          printf("Received unknown OSC message: [%i bytes] %s %s ", len, osc.address, osc.format);
-          for (int i = 0; osc.format[i] != '\0'; i++) {
-            switch (osc.format[i]) {
-              case 'f': printf("%g ", tosc_getNextFloat(&osc)); break;
-              case 'i': printf("%i ", tosc_getNextInt32(&osc)); break;
-              default: continue;
-            }
-          }
-          printf("\n");
+          printf("Received unknown OSC message: ");
+          tosc_printOscBuffer(buffer, len);
         }
       }
     }
