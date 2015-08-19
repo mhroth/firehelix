@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-#include "Utils.h" 
+#include "Utils.h"
 
 #if !HV_MSVC
 #pragma mark - Heavy Table
@@ -166,12 +166,14 @@ HV_EXPORT Hv_firehelix *hv_firehelix_new_with_pool(double sampleRate, int poolKb
 /** Frees a patch instance. */
 HV_EXPORT void hv_firehelix_free(Hv_firehelix *c);
 
-/** Processes one block of samples for a patch instance. The buffer format is an array of arrays. */
+/** Processes one block of samples for a patch instance. The buffer format is an array of float channel arrays. */
 HV_EXPORT int hv_firehelix_process(Hv_firehelix *c, float **const inputBuffers, float **const outputBuffers, int n4);
 
-/** Processes one block of samples for a patch instance. The buffer format is an uninterleaved array of channels. */
+/** Processes one block of samples for a patch instance. The buffer format is an uninterleaved float array of channels. */
 HV_EXPORT int hv_firehelix_process_inline(Hv_firehelix *c, float *const inputBuffers, float *const outputBuffers, int n4);
 
+/** Processes one block of samples for a patch instance. The buffer format is an interleaved short array of channels. */
+HV_EXPORT int hv_firehelix_process_inline_short(Hv_firehelix *c, short *const inputBuffers, short *const outputBuffers, int n4);
 #endif // _HEAVY_FIREHELIX_H_
 
 
