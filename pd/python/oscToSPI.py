@@ -10,7 +10,10 @@ import time
 spi = spidev.SpiDev()
 spi.open(0, 0)
 spi.max_speed_hz = 976000
- 
+
+#multiplier for SPI digipot output
+multiplier = 256
+
 # Split an integer input into a two byte array to send via SPI
 def write_pot(val):
     val = int(val)
@@ -25,12 +28,14 @@ run = True
 def float_to_hex(f):
     return hex(struct.unpack('<I', struct.pack('<f', f))[0])
 
-def printit(path, tags, args, source):
-#    print("This", path, tags, args, source)
- #   print("Hex", float_to_hex(args[0]))
-    write_pot(args[0])
+def printIt(path, tags, args, source):
+    print("This", path, tags, args, source)
 
-server.addMsgHandler( "/volume", printit)
+def sendToPot(path, tags, args, source):
+    write_pot(int(args[0]*multiplier))
+
+server.addMsgHandler( "/force", sendToPot)
+server.addMsgHandler( "/direction", printIt)
 
 def each_frame():
     server.timed_out = False
