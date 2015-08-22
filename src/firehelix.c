@@ -320,25 +320,11 @@ void main(int argc, char *argv[]) {
           hv_vscheduleMessageForReceiver(
               hv_context, str, 0.0, "f", tosc_getNextFloat(&osc));
         } else if (!strncmp(osc.address, "/branch-index", 13)) {
-          const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
-          if (!strcmp(osc.address, "/branch-index/1/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 1.0f);
-          } else if (!strcmp(osc.address, "/branch-index/2/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 2.0f);
-          } else if (!strcmp(osc.address, "/branch-index/3/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 3.0f);
-          } else if (!strcmp(osc.address, "/branch-index/4/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 4.0f);
-          } else if (!strcmp(osc.address, "/branch-index/5/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 5.0f);
-          } else if (!strcmp(osc.address, "/branch-index/6/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 6.0f);
-          } else if (!strcmp(osc.address, "/branch-index/7/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 7.0f);
-          } else if (!strcmp(osc.address, "/branch-index/8/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 8.0f);
-          } else if (!strcmp(osc.address, "/branch-index/9/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#branch-index", 0.0, "f", 9.0f);
+          if (tosc_getNextFloat(&osc) == 1.0f) { // if is on
+            // e.g. /branch-index/1/1 ... /branch-index/9/1
+            const int branch_index = osc.address[14] - '0';
+            hv_vscheduleMessageForReceiver(
+                hv_context, "#branch-index", 0.0, "f", (float) branch_index);
           }
         } else if (!strncmp(osc.address, "/mode-index", 11)) {
           const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
