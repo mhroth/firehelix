@@ -29,10 +29,14 @@ def float_to_hex(f):
     return hex(struct.unpack('<I', struct.pack('<f', f))[0])
 
 def printIt(path, tags, args, source):
-    print("This", path, tags, args, source)
+    if (args[0]==0):
+        print("Direction: Reverse")
+    else:
+        print("Direction: Forward")
 
 def sendToPot(path, tags, args, source):
     write_pot(int(args[0]*multiplier))
+    print("Speed:", args[0]*multiplier)
 
 server.addMsgHandler( "/force", sendToPot)
 server.addMsgHandler( "/direction", printIt)
