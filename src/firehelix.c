@@ -53,7 +53,7 @@ struct bcm2835_peripheral gpio = {GPIO_BASE};
 #define OUT_GPIO(g) *(gpio.addr + ((g)/10)) |=  (1<<(((g)%10)*3))
 #define GPIO_SET(g) *(gpio.addr + 7 + (g/32)) = (1 << ((g)%32))
 #define GPIO_CLR(g) *(gpio.addr + 10 + (g/32)) = (1 << ((g)%32))
-#define GPIO_READ(g) *(gpio.addr + 13 + (g/32)) &= (1 << ((g)%32)) // NOTE(mhroth): unused for now
+#define GPIO_READ(g) *(gpio.addr + 13 + (g/32)) &= (1 << ((g)%32))
 
 #define MMAP_PAGE_SIZE 4096
 #define MMAP_BLOCK_SIZE 4096
@@ -105,7 +105,13 @@ static void sigintHandler(int x) {
   _keepRunning = false;
 }
 
-void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start) {
+// the datastructure for the user data passed to Heavy
+typedef struct HeavyUserData {
+  int fd_touchosc;
+  int fd_rpi;
+} HeavyUserData;
+
+static void timespec_subtract(struct timespec *result, struct timespec *end, struct timespec *start) {
   if (end->tv_nsec < start->tv_nsec) {
     result->tv_sec = end->tv_sec - start->tv_sec - 1;
     result->tv_nsec = SEC_TO_NS + end->tv_nsec - start->tv_nsec;
@@ -114,18 +120,19 @@ void timespec_subtract(struct timespec *result, struct timespec *end, struct tim
     result->tv_nsec = end->tv_nsec - start->tv_nsec;
   }
 }
+
 static void hv_printHook(double timestamp, const char *name, const char *s,
     void *userData) {
   printf("[@h %.3fms] %s: %s\n", timestamp, name, s);
 }
 
 /*
-    struct timespec tock, diff_tick;
-    clock_gettime(CLOCK_REALTIME, &tock);
-    timespec_subtract(&diff_tick, &tock, (struct timespec *) userData);
-    const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
-    const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
-    printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
+struct timespec tock, diff_tick;
+clock_gettime(CLOCK_REALTIME, &tock);
+timespec_subtract(&diff_tick, &tock, (struct timespec *) userData);
+const int64_t elapsed_ns = (((int64_t) diff_tick.tv_sec) * SEC_TO_NS) + diff_tick.tv_nsec;
+const double elapsed_ms = ((double) elapsed_ns) / 1000000.0;
+printf("[clock drift %.3f%%]: %s.\n", 100.0*(elapsed_ms-timestamp)/timestamp, receiverName);
 */
 static void hv_sendHook(double timestamp, const char *receiverName,
     const HvMessage *m, void *userData) {
@@ -139,7 +146,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
 
       {
         // send the pin state back to TouchOSC
-        int fd = *((int *) userData);
+        const int fd = ((HeavyUserData *) userData)->fd_touchosc;
         char addr[16];
         if (pin == 40) pin = 16; // NOTE(mhroth): undo the above transformation
         snprintf(addr, sizeof(addr), "/1/led%i", pin);
@@ -152,7 +159,7 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     }
   } else if (!strcmp(receiverName, "#time-remaining-label")) {
     // send sequence time to TouchOSC
-    int fd = *((int *) userData);
+    const int fd = ((HeavyUserData *) userData)->fd_touchosc;
     char str[32];
     snprintf(str, sizeof(str), "%g:%g",
       hv_msg_getFloat(m, 0), hv_msg_getFloat(m, 1));
@@ -162,10 +169,16 @@ static void hv_sendHook(double timestamp, const char *receiverName,
     send(fd, buffer, len, 0);
   } else if (!strcmp(receiverName, "#status-label")) {
     // send status label to TouchOSC
-    int fd = *((int *) userData);
+    const int fd = ((HeavyUserData *) userData)->fd_touchosc;
     char buffer[64];
     int len = tosc_write(buffer, sizeof(buffer),
         "/status-label", "s", hv_msg_getSymbol(m, 0));
+    send(fd, buffer, len, 0);
+  } else if (!strcmp(receiverName, "#force")) {
+    const int fd = ((HeavyUserData *) userData)->fd_rpi;
+    char buffer[64];
+    int len = tosc_write(buffer, sizeof(buffer),
+        "/force", "f", hv_msg_getFloat(m, 0));
     send(fd, buffer, len, 0);
   } else {
     // NOTE(mhroth): this can get annoying, uncomment if necessary
@@ -288,7 +301,10 @@ void main(int argc, char *argv[]) {
   Hv_firehelix *hv_context = hv_firehelix_new_with_pool(HEAVY_SAMPLE_RATE, 100);
   hv_setPrintHook(hv_context, &hv_printHook);
   hv_setSendHook(hv_context, &hv_sendHook);
-  hv_setUserData(hv_context, (void *) &fd_touchosc);
+  HeavyUserData userData;
+  userData.fd_touchosc = fd_touchosc;
+  userData.fd_rpi = fd_rpi;
+  hv_setUserData(hv_context, (void *) &userData);
   printf("done.\n");
 
   printf("Starting runloop.\n");
@@ -327,39 +343,40 @@ void main(int argc, char *argv[]) {
                 hv_context, "#branch-index", 0.0, "f", (float) branch_index);
           }
         } else if (!strncmp(osc.address, "/mode-index", 11)) {
-          const bool is_on = (tosc_getNextFloat(&osc) == 1.0f);
-          if (!strcmp(osc.address, "/mode-index/1/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 1.0f);
-          } else if (!strcmp(osc.address, "/mode-index/2/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 2.0f);
-          } else if (!strcmp(osc.address, "/mode-index/3/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 3.0f);
-          } else if (!strcmp(osc.address, "/mode-index/4/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 4.0f);
-          } else if (!strcmp(osc.address, "/mode-index/5/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 5.0f);
-          } else if (!strcmp(osc.address, "/mode-index/6/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 6.0f);
-          } else if (!strcmp(osc.address, "/mode-index/7/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 7.0f);
-          } else if (!strcmp(osc.address, "/mode-index/8/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 8.0f);
-          } else if (!strcmp(osc.address, "/mode-index/9/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 9.0f);
-          } else if (!strcmp(osc.address, "/mode-index/10/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 10.0f);
-          } else if (!strcmp(osc.address, "/mode-index/11/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 11.0f);
-          } else if (!strcmp(osc.address, "/mode-index/12/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 12.0f);
-          } else if (!strcmp(osc.address, "/mode-index/13/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 13.0f);
-          } else if (!strcmp(osc.address, "/mode-index/14/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 14.0f);
-          } else if (!strcmp(osc.address, "/mode-index/15/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 15.0f);
-          } else if (!strcmp(osc.address, "/mode-index/16/1") && is_on) {
-            hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
+          if (tosc_getNextFloat(&osc) == 1.0f) { // if is on
+            if (!strcmp(osc.address, "/mode-index/1/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 1.0f);
+            } else if (!strcmp(osc.address, "/mode-index/2/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 2.0f);
+            } else if (!strcmp(osc.address, "/mode-index/3/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 3.0f);
+            } else if (!strcmp(osc.address, "/mode-index/4/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 4.0f);
+            } else if (!strcmp(osc.address, "/mode-index/5/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 5.0f);
+            } else if (!strcmp(osc.address, "/mode-index/6/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 6.0f);
+            } else if (!strcmp(osc.address, "/mode-index/7/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 7.0f);
+            } else if (!strcmp(osc.address, "/mode-index/8/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 8.0f);
+            } else if (!strcmp(osc.address, "/mode-index/9/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 9.0f);
+            } else if (!strcmp(osc.address, "/mode-index/10/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 10.0f);
+            } else if (!strcmp(osc.address, "/mode-index/11/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 11.0f);
+            } else if (!strcmp(osc.address, "/mode-index/12/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 12.0f);
+            } else if (!strcmp(osc.address, "/mode-index/13/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 13.0f);
+            } else if (!strcmp(osc.address, "/mode-index/14/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 14.0f);
+            } else if (!strcmp(osc.address, "/mode-index/15/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 15.0f);
+            } else if (!strcmp(osc.address, "/mode-index/16/1")) {
+              hv_vscheduleMessageForReceiver(hv_context, "#mode-index", 0.0, "f", 16.0f);
+            }
           }
         } else if (!strcmp(osc.address, "/all-off")) {
           if (tosc_getNextFloat(&osc) == 1.0f) {
@@ -370,7 +387,7 @@ void main(int argc, char *argv[]) {
         } else if (!strcmp(osc.address, "/reset-button")) {
           send(fd_rpi, buffer, len, 0); // forward the message to the rpi
         } else if (!strcmp(osc.address, "/sigint")) {
-          sigintHandler(0); // allow the program to exit
+          sigintHandler(SIGINT); // allow the program to exit
         } else {
           printf("Received unknown OSC message: ");
           tosc_printOscBuffer(buffer, len);
