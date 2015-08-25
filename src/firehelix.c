@@ -370,7 +370,7 @@ void main(int argc, char *argv[]) {
         } else if (!strcmp(osc.address, "/reset-button")) {
           send(fd_rpi, buffer, len, 0); // forward the message to the rpi
         } else if (!strcmp(osc.address, "/sigint")) {
-          sigintHandler(); // allow the program to exit
+          sigintHandler(0); // allow the program to exit
         } else {
           printf("Received unknown OSC message: ");
           tosc_printOscBuffer(buffer, len);
