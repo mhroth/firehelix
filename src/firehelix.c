@@ -385,7 +385,17 @@ void main(int argc, char *argv[]) {
         } else if (!strcmp(osc.address, "/start-button")) {
           send(fd_rpi, buffer, len, 0); // forward the message to the rpi
         } else if (!strcmp(osc.address, "/reset-button")) {
-          send(fd_rpi, buffer, len, 0); // forward the message to the rpi
+          send(fd_rpi, buffer, len, 0); // forward to rpi
+        } else if (!strcmp(osc.address, "/motor-on")) {
+          send(fd_rpi, buffer, len, 0); // forward to rpi
+        } else if (!strcmp(osc.address, "/motor-override")) {
+          send(fd_rpi, buffer, len, 0); // forward to rpi
+        } else if (!strcmp(osc.address, "/motor-reverse")) {
+          send(fd_rpi, buffer, len, 0); // forward to rpi
+        } else if (!strcmp(osc.address, "/sequence-override")) {
+          send(fd_rpi, buffer, len, 0); // forward to rpi
+        } else if (!strcmp(osc.address, "/motor-speed")) {
+          send(fd_rpi, buffer, len, 0); // forward to rpi
         } else if (!strcmp(osc.address, "/sigint")) {
           sigintHandler(SIGINT); // allow the program to exit
         } else {
