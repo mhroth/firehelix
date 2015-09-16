@@ -1,5 +1,5 @@
 # Firehelix
-A Burning Man 2015 art project by Trey Watkins, [Yuli Levtov](https://github.com/yulilevtov) and [Martin Roth](https://github.com/mhroth), et al.
+A Burning Man 2015 art project by Trey Watkins, [Yuli Levtov](https://github.com/ylevtov) and [Martin Roth](https://github.com/mhroth), et al.
 
 Firehelix is a twelve foot tall construction of 36 bidirectional flame poofers in a double helix configuration. It was premiered at Burning Man 2015. The structure was physically built and assembled in Oakland, California. The software and electronics were developed in London, UK.
 
