@@ -1,7 +1,7 @@
 # Firehelix
 A Burning Man 2015 art project by Trey Watkins, [Yuli Levtov](https://github.com/ylevtov) and [Martin Roth](https://github.com/mhroth), et al.
 
-Firehelix [@youtube](https://www.youtube.com/watch?v=B5KVtUZQuUs) [@reactify](http://reactifymusic.com/portfolio/the-firehelix/) is a twelve foot tall construction of 36 bidirectional flame poofers in a double helix configuration. It was premiered at Burning Man 2015. The structure was physically built and assembled in Oakland, California. The software and electronics were developed in London, UK.
+Firehelix [@onemandown](http://onemandown.com/FireHelix.htm) [@youtube](https://www.youtube.com/watch?v=B5KVtUZQuUs) [@reactify](http://reactifymusic.com/portfolio/the-firehelix/) is a twelve foot tall construction of 36 bidirectional flame poofers in a double helix configuration. It was premiered at Burning Man 2015. The structure was physically built and assembled in Oakland, California. The software and electronics were developed in London, UK.
 
 ## How it Works
 The Firehelix is controlled by two Raspberry Pi (RPi) computers. A [Compute Module](https://www.raspberrypi.org/products/compute-module-development-kit/) (CM) is located on the rotating structure and a [Model B](https://www.raspberrypi.org/products/raspberry-pi-2-model-b/) is mounted on the supporting frame. They are networked together via a local WiFi network. CM is responsible for individually controlling the 36 flame jets and acting as the central server for the system. B is used to control the game buttons which trigger a performance, as well as the motor which rotates the sculpture.
