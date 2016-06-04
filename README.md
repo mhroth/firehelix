@@ -39,3 +39,30 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
+
+## Setting up the RPi Compute Module
+1. Follow the [instructions for flashing](https://www.raspberrypi.org/documentation/hardware/computemodule/cm-emmc-flashing.md) the RPi compute module
+2. [Setup](http://www.howtogeek.com/167425/how-to-setup-wi-fi-on-your-raspberry-pi-via-the-command-line/) the WiFi connection
+  * `$ sudo nano /etc/network/interfaces`
+  * add:
+  ```
+allow-hotplug wlan0
+iface wlan0 inet dhcp
+wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+iface default inet dhcp
+  ```
+  * `$ sudo nano /etc/wpa_supplicant/wpa_supplicant.conf`
+  * add:
+  ```
+network={
+    ssid="YOURSSID"
+    psk="YOURPASSWORD"
+    # Protocol type can be: RSN (for WP2) and WPA (for WPA1)
+    proto=WPA
+}
+  ```
+3. [Enable](http://cplus.about.com/od/raspberrypi/a/How-Do-I-Setup-Ssh-On-Raspberry-Pi.htm) `sshd`
+  * `$ sudo update-rc.d ssh defaults`
+  * `$ sudo /etc/init.d/ssh start`
+4. Restart the Rpi
+  * `$ sudo reboot`
