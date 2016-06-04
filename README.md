@@ -66,7 +66,7 @@ network={
   * `$ sudo /etc/init.d/ssh start`
 4. Turn off [WiFi power saving](http://www.averagemanvsraspberrypi.com/2014/10/how-to-set-up-wifi-on-raspberry-pi.html)
   * `$ sudo nano /etc/modprobe.d/8192cu.conf `
-  * Add the line `options 8192cu rtw_power_mgnt=0 rtw_enusbss=0 rtw_ips_mode=1`.
+  * Add the line `options 8192cu rtw_power_mgnt=0 rtw_enusbss=0 rtw_ips_mode=1`
 5. Restart the Rpi
   * `$ sudo reboot`
 
